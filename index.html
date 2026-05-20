@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstudioFlow | Dashboard de Productividad</title>
+    <meta name="description" content="Un dashboard de productividad interactivo y elegante diseñado para estudiantes de ingeniería y sistemas.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Background decorative glowing orbs -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-terminal"></i>
+                </div>
+                <span class="logo-text">Akary<span>App</span></span>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" id="nav-dashboard">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-tasks">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Tareas</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-timer">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span>Pomodoro</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-notes">
+                    <i class="fa-solid fa-note-sticky"></i>
+                    <span>Apuntes</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-routines">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Rutinas</span>
+                </a>
+            </nav>
+            <!-- Lofi Music Player Widget -->
+            <div class="lofi-player">
+                <div class="player-header">
+                    <span class="player-title"><i class="fa-solid fa-music"></i> Lofi Station</span>
+                    <span class="player-status" id="lofi-status">Offline</span>
+                </div>
+                <div class="player-controls">
+                    <button class="player-btn" id="btn-lofi-play">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                    <select id="lofi-station-select">
+                        <option value="https://ice1.somafm.com/groovesalad-128-mp3">Groove Salad (Ambient)</option>
+                        <option value="https://ice1.somafm.com/fluid-128-mp3">Fluid (Lofi Beats)</option>
+                        <option value="https://ice1.somafm.com/dronezone-128-mp3">Drone Zone (Deep Focus)</option>
+                    </select>
+                </div>
+                <div class="volume-container">
+                    <i class="fa-solid fa-volume-low"></i>
+                    <input type="range" id="lofi-volume" min="0" max="1" step="0.05" value="0.5">
+                </div>
+                <audio id="lofi-audio" preload="none"></audio>
+            </div>
+
+            <div class="user-profile">
+                <div class="avatar">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </div>
+                <div class="user-info">
+                    <span class="user-name">Akary</span>
+                    <span class="user-role">Sistemas</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="welcome-text">
+                    <h1>Hola, <span class="gradient-text">Futura Ingeniera</span> 👋</h1>
+                    <p>Hoy es un gran día para codificar y aprender algo nuevo.</p>
+                </div>
+                <div class="header-actions">
+                    <div class="date-badge">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span id="current-date">Cargando fecha...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <div id="section-dashboard" class="tab-content">
+                <div class="dashboard-grid">
+                <!-- Row 1: Quick Stats -->
+                <section class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-icon icon-tasks">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Tareas Pendientes</h3>
+                            <p class="stat-number" id="stat-pending-tasks">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-pomodoro">
+                            <i class="fa-solid fa-brain"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Ciclos Pomodoro</h3>
+                            <p class="stat-number" id="stat-completed-pomodoros">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-code">
+                            <i class="fa-solid fa-code"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Líneas de Código</h3>
+                            <p class="stat-number">404</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Row 2: Pomodoro, Tasks & Water Tracker Widgets -->
+                <div class="widgets-container">
+                    <!-- Pomodoro Widget -->
+                    <section class="card widget-pomodoro">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-hourglass-half"></i> Cronómetro Pomodoro</h2>
+                            <span class="badge" id="timer-status">Foco</span>
+                        </div>
+                        <div class="timer-display">
+                            <div class="progress-ring-container">
+                                <svg class="progress-ring" width="200" height="200">
+                                    <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="8" fill="transparent" r="85" cx="100" cy="100"/>
+                                    <circle class="progress-ring__circle" id="timer-progress" stroke="url(#gradient)" stroke-width="8" fill="transparent" r="85" cx="100" cy="100"/>
+                                    <defs>
+                                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#a855f7" />
+                                            <stop offset="100%" stop-color="#ec4899" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                <div class="timer-text" id="time-left">25:00</div>
+                            </div>
+                        </div>
+                        <div class="timer-controls">
+                            <button id="btn-timer-start" class="btn btn-primary">
+                                <i class="fa-solid fa-play"></i> Iniciar
+                            </button>
+                            <button id="btn-timer-pause" class="btn btn-secondary" disabled>
+                                <i class="fa-solid fa-pause"></i> Pausar
+                            </button>
+                            <button id="btn-timer-reset" class="btn btn-tertiary">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                        </div>
+                        <div class="timer-presets">
+                            <button class="preset-btn active" data-time="1500">Pomodoro (25m)</button>
+                            <button class="preset-btn" data-time="300">Recreo Corto (5m)</button>
+                            <button class="preset-btn" data-time="900">Recreo Largo (15m)</button>
+                        </div>
+
+                        <!-- Custom Timer Settings -->
+                        <div class="custom-timer-area animate-pop">
+                            <span class="custom-timer-label"><i class="fa-regular fa-clock"></i> Personalizado:</span>
+                            <div class="custom-timer-input-group">
+                                <input type="number" id="custom-minutes" min="1" max="180" placeholder="Minutos">
+                                <button id="btn-set-custom" class="btn btn-secondary btn-sm" title="Establecer tiempo personalizado">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Water Tracker Widget -->
+                    <section class="card widget-water animate-pop" id="widget-water">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-glass-water"></i> Mis Vasitos</h2>
+                            <span class="badge badge-water" id="water-target-badge">Meta: 6 vasos</span>
+                        </div>
+                        <div class="water-tracker-body">
+                            <div class="water-cups-grid" id="water-cups-container">
+                                <!-- Vasitos inyectados dinámicamente por JS -->
+                            </div>
+                            <div class="water-progress-text" id="water-progress-display">
+                                Tomados: <span id="water-count-display">0</span> / <span id="water-goal-display">6</span> vasos 💧
+                            </div>
+                            <div class="water-controls">
+                                <button id="btn-add-water" class="btn btn-primary btn-sm">
+                                    <i class="fa-solid fa-plus"></i> Tomar Vaso
+                                </button>
+                                <button id="btn-remove-water" class="btn btn-tertiary btn-sm" title="Quitar un vaso">
+                                    <i class="fa-solid fa-minus"></i>
+                                </button>
+                            </div>
+                            <div class="water-settings">
+                                <span>Meta diaria:</span>
+                                <select id="water-goal-select" class="water-select-style">
+                                    <option value="5">5 Vasos 🥤</option>
+                                    <option value="6" selected>6 Vasos 🥤</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- To Do Widget -->
+                    <section class="card widget-tasks">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-list-check"></i> Tareas de Hoy</h2>
+                        </div>
+                        
+                        <div class="task-input-container">
+                            <input type="text" id="new-task-title" placeholder="¿Qué estudiarás hoy? (Ej: Repasar grafos)">
+                            <select id="new-task-priority">
+                                <option value="low">Baja</option>
+                                <option value="medium" selected>Media</option>
+                                <option value="high">Alta</option>
+                            </select>
+                            <button id="btn-add-task" class="btn btn-primary">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="task-list-wrapper">
+                            <ul id="task-list" class="task-list">
+                                <!-- Tasks will be injected here dynamically -->
+                            </ul>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Row 3: Full-width Systems Terminal Simulator -->
+                <div class="widgets-container-full">
+                    <!-- Systems Terminal Simulator -->
+                    <section class="card widget-terminal widget-terminal-full animate-pop">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-terminal"></i> Consola interactiva</h2>
+                            <span class="badge badge-terminal">bash</span>
+                        </div>
+                        <div class="terminal-container">
+                            <div class="terminal-body" id="terminal-output">
+                                <div class="terminal-line"><span class="terminal-prompt">invitado@estudioflow:~$</span> bienvenido a EstudioFlow Terminal v1.0.</div>
+                                <div class="terminal-line"><span class="terminal-prompt">invitado@estudioflow:~$</span> escribe 'help' para ver los comandos disponibles.</div>
+                            </div>
+                            <div class="terminal-input-line">
+                                <span class="terminal-prompt">invitado@estudioflow:~$</span>
+                                <input type="text" id="terminal-input" autocomplete="off" placeholder="...">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div> <!-- closing dashboard-grid -->
+            </div> <!-- closing section-dashboard -->
+
+            <!-- Daily Routines Section -->
+            <div id="section-routines" class="tab-content hidden">
+                <!-- Real-Time Clock Badge -->
+                <div class="card realtime-clock-card animate-pop">
+                    <div class="realtime-clock-body">
+                        <div class="realtime-clock-icon">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="realtime-clock-info">
+                            <span class="realtime-clock-label">Hora del Sistema en Vivo</span>
+                            <span class="realtime-clock-time" id="realtime-clock-display">--:-- --</span>
+                        </div>
+                        <div class="realtime-clock-badge">
+                            <span class="realtime-live-dot"></span>
+                            <span>En tiempo real</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card routines-card">
+                    <div class="card-header animate-pop">
+                        <h2><i class="fa-solid fa-calendar-check"></i> Registro de Rutinas Diarias</h2>
+                        <div class="routine-header-actions">
+                            <button id="btn-edit-routines" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-gears"></i> Editar Rutinas
+                            </button>
+                            <button id="btn-save-edited-routines" class="btn btn-primary btn-sm hidden">
+                                <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+                            </button>
+                            <button id="btn-reset-routines" class="btn btn-tertiary btn-sm">
+                                <i class="fa-solid fa-arrows-rotate"></i> Reiniciar Día
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="routines-grid">
+                        <!-- Column 1: Morning -->
+                        <div class="routine-block-card">
+                            <div class="block-header header-morning">
+                                <h3><i class="fa-solid fa-cloud-sun"></i> Bloque Mañana</h3>
+                                <span class="block-time">Horarios Matutinos</span>
+                            </div>
+                            <div class="block-description">Activación, Creatividad y Recreación</div>
+                            <ul class="routine-checklist" id="morning-routine-list">
+                                <!-- Injected dynamically in JS -->
+                            </ul>
+                        </div>
+
+                        <!-- Column 2: Afternoon -->
+                        <div class="routine-block-card">
+                            <div class="block-header header-afternoon">
+                                <h3><i class="fa-solid fa-laptop-code"></i> Bloque Tarde</h3>
+                                <span class="block-time">Horarios de Clases</span>
+                            </div>
+                            <div class="block-description">Clases Virtuales del Instituto</div>
+                            <ul class="routine-checklist" id="afternoon-routine-list">
+                                <!-- Injected dynamically in JS -->
+                            </ul>
+                        </div>
+
+                        <!-- Column 3: Evening -->
+                        <div class="routine-block-card">
+                            <div class="block-header header-evening">
+                                <h3><i class="fa-solid fa-cloud-moon"></i> Bloque Noche</h3>
+                                <span class="block-time">Horarios Nocturnos</span>
+                            </div>
+                            <div class="block-description">Repaso, Skincare y Desconexión</div>
+                            <ul class="routine-checklist" id="evening-routine-list">
+                                <!-- Injected dynamically in JS -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Punishment Section (Roulette) -->
+                <div class="punishment-section card animate-pop hidden" id="punishment-widget">
+                    <div class="punishment-header">
+                        <div class="punishment-title-area">
+                            <h3><i class="fa-solid fa-circle-radiation text-danger animate-pulse"></i> Ruleta de Castigos☁️🎰</h3>
+                            <p>Tienes <span class="highlight-count" id="expired-count">0</span> tareas expiradas sin completar. ¡Gira la ruleta para ver tu castigo!</p>
+                        </div>
+                    </div>
+                    <div class="roulette-layout">
+                        <div class="roulette-wrapper">
+                            <div class="roulette-pointer"><i class="fa-solid fa-caret-down"></i></div>
+                            <div class="roulette-wheel" id="roulette-wheel">
+                                <!-- Sectores generados dinámicamente en JS -->
+                            </div>
+                            <button id="btn-spin-roulette" class="btn btn-primary btn-spin">
+                                <i class="fa-solid fa-dice"></i> ¡Girar Ruleta!
+                            </button>
+                        </div>
+                        <div class="punishment-display">
+                            <div class="punishment-display-card animate-pop" id="punishment-result-card">
+                                <div class="p-card-header">Castigo Seleccionado</div>
+                                <div class="p-card-body" id="punishment-text">Aún no has girado la ruleta. ¡Haz clic en "Girar Ruleta" para enfrentar la disciplina! 🌤️✨</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fila de Gestión de Castigos y Ledger -->
+                    <div class="punishment-ledger-row">
+                        <!-- Bloque 1: Creador de Castigos Personalizados -->
+                        <div class="custom-punishment-box">
+                            <h4><i class="fa-solid fa-square-plus"></i> Crear Nuevo Castigo</h4>
+                            <div class="custom-punishment-form">
+                                <div class="input-field-group">
+                                    <input type="text" id="new-punishment-name" placeholder="Ej: Saltar la cuerda 🪢">
+                                </div>
+                                <div class="input-field-group">
+                                    <input type="text" id="new-punishment-desc" placeholder="Ej: 50 saltos seguidos sin parar.">
+                                </div>
+                                <button id="btn-add-custom-punishment" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-plus"></i> Añadir a la Ruleta
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Bloque 2: Historial/Ledger de Castigos por Cumplir -->
+                        <div class="punishment-ledger-box">
+                            <h4><i class="fa-solid fa-clipboard-list"></i> Castigos por Cumplir (Faltantes)</h4>
+                            <ul id="punishment-ledger-list" class="punishment-ledger-list">
+                                <!-- Populado dinámicamente en JS -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fullscreen Notes Section -->
+            <div id="section-notes" class="tab-content hidden">
+                <div class="card notes-page-card animate-pop">
+                    <div class="notes-layout">
+                        <!-- Sidebar Izquierda: Directorio de Cuadernos -->
+                        <aside class="notebooks-sidebar">
+                            <div class="sidebar-notes-header">
+                                <h4>Mis Cuadernos ☁️</h4>
+                            </div>
+                            <ul id="notebooks-list" class="notebooks-list">
+                                <!-- Populado dinámicamente en JS -->
+                            </ul>
+                            <button id="btn-add-notebook" class="btn btn-add-notebook-style">
+                                <i class="fa-solid fa-folder-plus"></i> Nuevo Cuaderno
+                            </button>
+                        </aside>
+
+                        <!-- Área de Edición Derecha -->
+                        <section class="notebook-editor-pane">
+                            <div class="notebook-editor-header">
+                                <div class="notebook-title-edit-area">
+                                    <input type="text" id="active-notebook-title" value="" class="notebook-title-input" title="Haz clic para renombrar">
+                                    <i class="fa-solid fa-pen-to-square edit-icon-hint"></i>
+                                </div>
+                                <div class="notes-actions">
+                                    <span id="autosave-status" class="autosave-status">Apuntes guardados</span>
+                                    <button id="btn-clear-note" class="btn btn-tertiary btn-sm" title="Limpiar cuaderno actual">
+                                        <i class="fa-solid fa-trash-can"></i> Limpiar
+                                    </button>
+                                    <button id="btn-save-note" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Guardar 💾
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="note-editor-large">
+                                <textarea id="quick-note" placeholder="Escribe aquí tus fórmulas, código, enlaces o listas de esta materia... Se guarda automáticamente en tiempo real. 🌤️🎀"></textarea>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Audio assets for Pomodoro -->
+    <audio id="bell-sound" preload="none"></audio>
+
+    <!-- Cute Cinnamoroll Alarm Modal Alert -->
+    <div id="alarm-modal" class="modal-overlay hidden">
+        <div class="custom-modal animate-pop">
+            <div class="modal-icon">
+                <i class="fa-solid fa-star animate-spin-slow"></i>
+            </div>
+            <h3 class="modal-title">¡Tiempo Concluido! ☁️</h3>
+            <p class="modal-message">¡Excelente trabajo enfocado! Cinnamoroll te recuerda tomar un recreo corto, estirar tu cuerpo y tomar un poco de agua. 🌤️🎀</p>
+            <button id="btn-close-modal" class="btn btn-primary">
+                Aceptar y Detener Alarma
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
