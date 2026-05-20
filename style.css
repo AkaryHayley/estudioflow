@@ -2770,3 +2770,319 @@ h1, h2, h3, h4, h5, h6 {
     50% { box-shadow: 0 0 32px rgba(14, 165, 233, 0.35), 0 0 60px rgba(244, 114, 182, 0.12); }
     100% { box-shadow: var(--card-shadow); }
 }
+
+/* ==========================================
+   RULETA DE CASTIGOS - ESTILOS COMPLETOS
+   ========================================== */
+
+.punishment-section {
+    margin-top: 2rem;
+    background: rgba(255, 255, 255, 0.8);
+    border: 2px solid var(--border-color);
+    border-radius: 28px;
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+}
+
+.punishment-header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.punishment-title-area h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.highlight-count {
+    background: var(--danger);
+    color: white;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+}
+
+.roulette-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .roulette-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+.roulette-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.roulette-pointer {
+    font-size: 2.2rem;
+    color: var(--secondary);
+    margin-bottom: -18px;
+    z-index: 10;
+    filter: drop-shadow(0 2px 4px rgba(244, 114, 182, 0.3));
+    animation: pointerBounce 0.6s infinite alternate;
+}
+
+@keyframes pointerBounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+.roulette-wheel {
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    border: 8px solid white;
+    box-shadow: 0 10px 30px rgba(14, 165, 233, 0.15);
+    transition: transform 3.5s cubic-bezier(0.2, 0.9, 0.1, 1.1);
+}
+
+.wheel-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 110px;
+    margin-left: -55px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #334155;
+    text-align: center;
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.btn-spin {
+    margin-top: 1.5rem;
+    padding: 0.8rem 2rem;
+    font-size: 1rem;
+    border-radius: 40px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 700;
+}
+
+.btn-spin:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(244, 114, 182, 0.4);
+}
+
+.btn-spin:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.punishment-display-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.8));
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.p-card-header {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--secondary);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.p-card-body {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-main);
+}
+
+/* Ledger y creación de castigos */
+.punishment-ledger-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .punishment-ledger-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.custom-punishment-box, .punishment-ledger-box {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 1.25rem;
+}
+
+.custom-punishment-box h4, .punishment-ledger-box h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-dark);
+}
+
+.custom-punishment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.custom-punishment-form input {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: white;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.custom-punishment-form input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
+}
+
+.punishment-ledger-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.punishment-ledger-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.punishment-ledger-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.ledger-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.ledger-item:hover {
+    background: white;
+    transform: translateY(-2px);
+}
+
+.ledger-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.ledger-item-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.ledger-item-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.ledger-item-badge.pending {
+    color: var(--danger);
+}
+
+.ledger-item-badge.clear {
+    color: var(--success);
+}
+
+.ledger-item-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.btn-ledger-add, .btn-ledger-deduct {
+    border: none;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.btn-ledger-add {
+    background: rgba(14, 165, 233, 0.15);
+    color: var(--primary);
+}
+
+.btn-ledger-add:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-ledger-deduct {
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--success);
+}
+
+.btn-ledger-deduct:hover:not(:disabled) {
+    background: var(--success);
+    color: white;
+}
+
+.btn-ledger-deduct:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ledger-empty-item {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Animación pop */
+@keyframes popIn {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pop {
+    animation: popIn 0.3s ease-out;
+}
