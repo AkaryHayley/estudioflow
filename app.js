@@ -608,4 +608,310 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         addTerminalLine('system', firestoreAvailable ? '🎉 Sincronización en tiempo real activa!' : '📁 Modo local - Firebase no conectado');
     }, 500);
+
+       // -------------------------------------------------------------
+    // RULETA DE CASTIGOS
+    // -------------------------------------------------------------
+    
+    // Lista de castigos predeterminados
+    const defaultPunishments = [
+        { id: 'p1', name: "Ahorro Obligatorio 💸", desc: "Depositar 5 Bs en tu frasco de ahorros. ¡Disciplina financiera!", count: 0 },
+        { id: 'p2', name: "Cardio Flash 🧘", desc: "Realizar 30 sentadillas suaves para reactivar el cuerpo", count: 0 },
+        { id: 'p3', name: "Desintoxicación Móvil 📵", desc: "5 horas sin mirar el celular. ¡Foco total!", count: 0 },
+        { id: 'p4', name: "Fuerza Gamer ⚡", desc: "Hacer 10 flexiones de pecho", count: 0 },
+        { id: 'p5', name: "Orden Relámpago 🫧", desc: "Hacer limpieza del cuarto/taller trapeando", count: 0 },
+        { id: 'p6', name: "Estiramiento Zen ☁️", desc: "20 minutos de estiramientos de espalda y cuello", count: 0 }
+    ];
+    
+    let punishments = loadState('punishments-list', defaultPunishments);
+    let currentRotation = 0;
+    let isSpinning = false;
+    
+    // Elementos DOM
+    const rouletteWheel = document.getElementById('roulette-wheel');
+    const btnSpinRoulette = document.getElementById('btn-spin-roulette');
+    const punishmentText = document.getElementById('punishment-text');
+    const punishmentResultCard = document.getElementById('punishment-result-card');
+    const expiredCountSpan = document.getElementById('expired-count');
+    const punishmentWidget = document.getElementById('punishment-widget');
+    const ledgerList = document.getElementById('punishment-ledger-list');
+    const btnAddCustom = document.getElementById('btn-add-custom-punishment');
+    const newPunishmentName = document.getElementById('new-punishment-name');
+    const newPunishmentDesc = document.getElementById('new-punishment-desc');
+    
+    // Sincronizar castigos con Firebase
+    const syncPunishments = () => {
+        if (firestoreAvailable) {
+            db.collection('estudioflow').doc('punishments').set({ punishments }, { merge: true });
+        }
+    };
+    
+    // Obtener tareas expiradas
+    const getExpiredTasksCount = () => {
+        const currentMinutes = getCurrentMinutes();
+        let expired = 0;
+        
+        const checkExpired = (routines) => {
+            routines.forEach(r => {
+                if (!r.completed && !r.processedByRoulette) {
+                    const endMin = timeToMinutes(r.endTime);
+                    if (currentMinutes > endMin) expired++;
+                }
+            });
+        };
+        
+        checkExpired(morningRoutines);
+        checkExpired(afternoonRoutines);
+        checkExpired(eveningRoutines);
+        
+        return expired;
+    };
+    
+    // Obtener primera tarea expirada no procesada
+    const getFirstExpiredRoutine = () => {
+        const currentMinutes = getCurrentMinutes();
+        
+        for (let r of morningRoutines) {
+            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
+                return { block: 'morning', routine: r };
+            }
+        }
+        for (let r of afternoonRoutines) {
+            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
+                return { block: 'afternoon', routine: r };
+            }
+        }
+        for (let r of eveningRoutines) {
+            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
+                return { block: 'evening', routine: r };
+            }
+        }
+        return null;
+    };
+    
+    // Actualizar widget de castigos
+    const updatePunishmentWidget = () => {
+        if (!punishmentWidget) return;
+        const expiredCount = getExpiredTasksCount();
+        const pendingLedger = punishments.reduce((sum, p) => sum + (p.count || 0), 0);
+        
+        if (expiredCountSpan) expiredCountSpan.textContent = expiredCount;
+        
+        if (expiredCount > 0 || pendingLedger > 0) {
+            punishmentWidget.classList.remove('hidden');
+            if (btnSpinRoulette) btnSpinRoulette.disabled = expiredCount === 0;
+        } else {
+            punishmentWidget.classList.add('hidden');
+        }
+    };
+    
+    // Renderizar ruleta
+    const renderRoulette = () => {
+        if (!rouletteWheel) return;
+        rouletteWheel.innerHTML = '';
+        const N = punishments.length;
+        if (N === 0) return;
+        
+        const sectorAngle = 360 / N;
+        const colors = ['#fce7f3', '#e0f2fe', '#f3e8ff', '#fef9c3', '#ccfbf1', '#ffedd5', '#dbeafe', '#fae8ff'];
+        
+        let gradientParts = [];
+        for (let i = 0; i < N; i++) {
+            const color = colors[i % colors.length];
+            const start = i * sectorAngle;
+            const end = (i + 1) * sectorAngle;
+            gradientParts.push(`${color} ${start}deg ${end}deg`);
+        }
+        rouletteWheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+        
+        // Agregar etiquetas
+        punishments.forEach((p, i) => {
+            const angle = (i * sectorAngle) + (sectorAngle / 2);
+            const label = document.createElement('div');
+            label.className = 'wheel-label';
+            label.textContent = p.name.length > 15 ? p.name.substring(0, 12) + '...' : p.name;
+            label.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translateY(-75px)`;
+            rouletteWheel.appendChild(label);
+        });
+    };
+    
+    // Renderizar ledger de castigos pendientes
+    const renderLedger = () => {
+        if (!ledgerList) return;
+        ledgerList.innerHTML = '';
+        
+        if (punishments.length === 0) {
+            ledgerList.innerHTML = '<li class="ledger-empty-item">No hay castigos creados</li>';
+            return;
+        }
+        
+        punishments.forEach(p => {
+            const count = p.count || 0;
+            const li = document.createElement('li');
+            li.className = 'ledger-item';
+            li.innerHTML = `
+                <div class="ledger-item-info">
+                    <span class="ledger-item-name">${escapeHTML(p.name)}</span>
+                    <span class="ledger-item-badge ${count > 0 ? 'pending' : 'clear'}">
+                        ${count > 0 ? `Pendientes: ${count}` : '✓ Completado'}
+                    </span>
+                </div>
+                <div class="ledger-item-actions">
+                    <button class="btn-ledger-add" data-id="${p.id}" title="Añadir castigo">+</button>
+                    <button class="btn-ledger-deduct" data-id="${p.id}" ${count === 0 ? 'disabled' : ''} title="Cumplir castigo">✓</button>
+                </div>
+            `;
+            
+            li.querySelector('.btn-ledger-add').addEventListener('click', () => {
+                p.count = (p.count || 0) + 1;
+                saveState('punishments-list', punishments);
+                syncPunishments();
+                renderLedger();
+                updatePunishmentWidget();
+                addTerminalLine('system', `➕ Añadiste: "${p.name}" (ahora ${p.count})`);
+            });
+            
+            li.querySelector('.btn-ledger-deduct').addEventListener('click', () => {
+                if (p.count > 0) {
+                    p.count--;
+                    saveState('punishments-list', punishments);
+                    syncPunishments();
+                    renderLedger();
+                    updatePunishmentWidget();
+                    addTerminalLine('system', `✅ Completaste: "${p.name}" (restan ${p.count})`);
+                }
+            });
+            
+            ledgerList.appendChild(li);
+        });
+    };
+    
+    // Girar ruleta
+    const spinRoulette = () => {
+        if (isSpinning) return;
+        
+        const expiredRoutine = getFirstExpiredRoutine();
+        if (!expiredRoutine) {
+            addTerminalLine('system', '✨ No hay tareas expiradas para procesar');
+            return;
+        }
+        
+        isSpinning = true;
+        btnSpinRoulette.disabled = true;
+        
+        const N = punishments.length;
+        const selectedIndex = Math.floor(Math.random() * N);
+        const sectorAngle = 360 / N;
+        const sectorCenter = (selectedIndex * sectorAngle) + (sectorAngle / 2);
+        const randomSpins = 6 + Math.floor(Math.random() * 4);
+        const targetAngle = 360 - sectorCenter;
+        const newRotation = currentRotation + (360 * randomSpins) + targetAngle;
+        
+        currentRotation = newRotation;
+        rouletteWheel.style.transition = 'transform 3.5s cubic-bezier(0.2, 0.9, 0.1, 1.1)';
+        rouletteWheel.style.transform = `rotate(${currentRotation}deg)`;
+        
+        addTerminalLine('system', `🎰 Girando ruleta por: "${expiredRoutine.routine.text}"...`);
+        
+        setTimeout(() => {
+            const punishment = punishments[selectedIndex];
+            punishment.count = (punishment.count || 0) + 1;
+            saveState('punishments-list', punishments);
+            syncPunishments();
+            
+            // Marcar tarea como procesada
+            expiredRoutine.routine.processedByRoulette = true;
+            if (expiredRoutine.block === 'morning') {
+                saveState('routines-morning', morningRoutines);
+            } else if (expiredRoutine.block === 'afternoon') {
+                saveState('routines-afternoon', afternoonRoutines);
+            } else {
+                saveState('routines-evening', eveningRoutines);
+            }
+            
+            renderAllRoutines();
+            renderLedger();
+            updatePunishmentWidget();
+            
+            if (punishmentText && punishmentResultCard) {
+                punishmentText.innerHTML = `
+                    <strong>${punishment.name}</strong><br>
+                    ${punishment.desc}<br>
+                    <span style="color: var(--secondary);">Acumulado: ${punishment.count}</span>
+                `;
+                punishmentResultCard.classList.remove('hidden');
+                punishmentResultCard.style.animation = 'popIn 0.5s ease';
+                setTimeout(() => {
+                    punishmentResultCard.style.animation = '';
+                }, 500);
+            }
+            
+            addTerminalLine('system', `⚠️ Castigo asignado: "${punishment.name}" por "${expiredRoutine.routine.text}"`);
+            
+            isSpinning = false;
+            btnSpinRoulette.disabled = false;
+        }, 3500);
+    };
+    
+    // Crear castigo personalizado
+    if (btnAddCustom) {
+        btnAddCustom.addEventListener('click', () => {
+            const name = newPunishmentName?.value.trim();
+            const desc = newPunishmentDesc?.value.trim() || "Castigo personalizado";
+            
+            if (!name) {
+                alert('Por favor ingresa un nombre para el castigo');
+                return;
+            }
+            
+            if (punishments.length >= 10) {
+                alert('Máximo 10 castigos en la ruleta');
+                return;
+            }
+            
+            const newId = 'custom-' + Date.now();
+            punishments.push({
+                id: newId,
+                name: name,
+                desc: desc,
+                count: 0
+            });
+            
+            saveState('punishments-list', punishments);
+            syncPunishments();
+            renderRoulette();
+            renderLedger();
+            updatePunishmentWidget();
+            
+            if (newPunishmentName) newPunishmentName.value = '';
+            if (newPunishmentDesc) newPunishmentDesc.value = '';
+            
+            addTerminalLine('system', `🎰 Nuevo castigo añadido: "${name}"`);
+        });
+    }
+    
+    // Event listener del botón girar
+    if (btnSpinRoulette) {
+        btnSpinRoulette.addEventListener('click', spinRoulette);
+    }
+    
+    // Inicializar ruleta
+    renderRoulette();
+    renderLedger();
+    updatePunishmentWidget();
+    
+    // Suscribir castigos a Firebase
+    if (firestoreAvailable) {
+        db.collection('estudioflow').doc('punishments').onSnapshot((doc) => {
+            if (doc.exists && !isSyncing && doc.data().punishments) {
+                isSyncing = true;
+                punishments = doc.data().punishments;
+                saveState('punishments-list', punishments);
+                renderRoulette();
+                renderLedger();
+                updatePunishmentWidget();
+                isSyncing = false;
+            }
+        });
+    }
 });
