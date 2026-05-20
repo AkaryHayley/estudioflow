@@ -1,5 +1,5 @@
 /* ==========================================
-   EstudioFlow JS - Sincronización Firebase COMPLETA
+   EstudioFlow JS - COMPLETO (con Water Tracker)
    ========================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,13 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('Firestore disponible:', firestoreAvailable);
     
-    // Helper functions
     const loadState = (key, defaultValue) => {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : defaultValue;
     };
     const saveState = (key, value) => {
         localStorage.setItem(key, JSON.stringify(value));
+    };
+    
+    const escapeHTML = (str) => {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[tag] || tag));
     };
     
     const addTerminalLine = (type, text) => {
@@ -36,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // -------------------------------------------------------------
-    // DATE & TIME
+    // DATE
     // -------------------------------------------------------------
     const dateSpan = document.getElementById('current-date');
     if (dateSpan) {
@@ -59,13 +65,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectTaskPriority = document.getElementById('new-task-priority');
     const btnAddTask = document.getElementById('btn-add-task');
     const statPendingTasksEl = document.getElementById('stat-pending-tasks');
-
-    const escapeHTML = (str) => {
-        if (!str) return '';
-        return str.replace(/[&<>'"]/g, tag => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-        }[tag] || tag));
-    };
 
     const updateStats = () => {
         if (statPendingTasksEl) {
@@ -101,18 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
         tasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
         saveState('tasks-list', tasks);
         renderTasks();
-        if (firestoreAvailable) {
-            db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
-        }
+        if (firestoreAvailable) db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
     };
 
     const deleteTask = (id) => {
         tasks = tasks.filter(t => t.id !== id);
         saveState('tasks-list', tasks);
         renderTasks();
-        if (firestoreAvailable) {
-            db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
-        }
+        if (firestoreAvailable) db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
     };
 
     const addTask = () => {
@@ -123,41 +118,114 @@ document.addEventListener('DOMContentLoaded', () => {
         tasks.push({ id: Date.now(), title, priority, completed: false });
         saveState('tasks-list', tasks);
         renderTasks();
-        if (firestoreAvailable) {
-            db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
-        }
+        if (firestoreAvailable) db.collection('estudioflow').doc('tasks').set({ tasks }, { merge: true });
         inputTaskTitle.value = '';
         addTerminalLine('system', `📝 Tarea añadida: "${title}"`);
     };
 
     if (btnAddTask) btnAddTask.addEventListener('click', addTask);
-    if (inputTaskTitle) {
-        inputTaskTitle.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') addTask();
-        });
-    }
+    if (inputTaskTitle) inputTaskTitle.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
 
     renderTasks();
 
-    // Suscribir tareas a Firebase
     if (firestoreAvailable) {
         db.collection('estudioflow').doc('tasks').onSnapshot((doc) => {
-            if (doc.exists && !isSyncing) {
-                const data = doc.data();
-                if (data.tasks) {
-                    isSyncing = true;
-                    tasks = data.tasks;
-                    saveState('tasks-list', tasks);
-                    renderTasks();
-                    addTerminalLine('system', '☁️ Tareas sincronizadas');
-                    isSyncing = false;
-                }
+            if (doc.exists && !isSyncing && doc.data().tasks) {
+                isSyncing = true;
+                tasks = doc.data().tasks;
+                saveState('tasks-list', tasks);
+                renderTasks();
+                addTerminalLine('system', '☁️ Tareas sincronizadas');
+                isSyncing = false;
             }
         });
     }
 
     // -------------------------------------------------------------
-    // SISTEMA DE NOTAS CON SINCRONIZACIÓN EN TIEMPO REAL
+    // WATER TRACKER - Mis Vasitos 💧
+    // -------------------------------------------------------------
+    let waterCount = loadState('studyflow-water-count', 0);
+    let waterTarget = loadState('studyflow-water-target', 6);
+
+    const waterCupsContainer = document.getElementById('water-cups-container');
+    const waterCountDisplay = document.getElementById('water-count-display');
+    const waterGoalDisplay = document.getElementById('water-goal-display');
+    const waterTargetBadge = document.getElementById('water-target-badge');
+    const btnAddWater = document.getElementById('btn-add-water');
+    const btnRemoveWater = document.getElementById('btn-remove-water');
+    const waterGoalSelect = document.getElementById('water-goal-select');
+    const waterWidget = document.getElementById('widget-water');
+
+    const syncWater = () => {
+        if (firestoreAvailable) {
+            db.collection('estudioflow').doc('water').set({ waterCount, waterTarget }, { merge: true });
+        }
+    };
+
+    if (firestoreAvailable) {
+        db.collection('estudioflow').doc('water').onSnapshot((doc) => {
+            if (doc.exists && !isSyncing && doc.data().waterCount !== undefined) {
+                isSyncing = true;
+                waterCount = doc.data().waterCount;
+                waterTarget = doc.data().waterTarget;
+                saveState('studyflow-water-count', waterCount);
+                saveState('studyflow-water-target', waterTarget);
+                if (waterGoalSelect) waterGoalSelect.value = String(waterTarget);
+                renderWaterCups();
+                isSyncing = false;
+            }
+        });
+    }
+
+    const renderWaterCups = () => {
+        if (!waterCupsContainer) return;
+        waterCupsContainer.innerHTML = '';
+        for (let i = 0; i < waterTarget; i++) {
+            const cup = document.createElement('button');
+            cup.className = `water-cup ${i < waterCount ? 'filled' : ''}`;
+            cup.innerHTML = `<i class="fa-solid fa-droplet cup-icon"></i>`;
+            cup.addEventListener('click', () => setWaterCount(i + 1));
+            waterCupsContainer.appendChild(cup);
+        }
+        if (waterCountDisplay) waterCountDisplay.textContent = waterCount;
+        if (waterGoalDisplay) waterGoalDisplay.textContent = waterTarget;
+        if (waterTargetBadge) waterTargetBadge.textContent = `Meta: ${waterTarget} vasos`;
+        if (btnRemoveWater) btnRemoveWater.disabled = waterCount === 0;
+    };
+
+    const setWaterCount = (newCount) => {
+        waterCount = Math.max(0, Math.min(newCount, waterTarget));
+        saveState('studyflow-water-count', waterCount);
+        syncWater();
+        renderWaterCups();
+        if (waterCount === waterTarget && waterCount > 0 && waterWidget) {
+            waterWidget.classList.add('goal-reached');
+            setTimeout(() => waterWidget.classList.remove('goal-reached'), 4500);
+            addTerminalLine('system', `💧 ¡Meta de ${waterTarget} vasos alcanzada!`);
+        }
+    };
+
+    if (btnAddWater) btnAddWater.addEventListener('click', () => {
+        if (waterCount < waterTarget) setWaterCount(waterCount + 1);
+        else addTerminalLine('system', `✅ ¡Ya alcanzaste tu meta de ${waterTarget} vasos!`);
+    });
+    if (btnRemoveWater) btnRemoveWater.addEventListener('click', () => setWaterCount(waterCount - 1));
+    if (waterGoalSelect) {
+        waterGoalSelect.value = String(waterTarget);
+        waterGoalSelect.addEventListener('change', () => {
+            waterTarget = parseInt(waterGoalSelect.value, 10);
+            if (waterCount > waterTarget) waterCount = waterTarget;
+            saveState('studyflow-water-target', waterTarget);
+            saveState('studyflow-water-count', waterCount);
+            syncWater();
+            renderWaterCups();
+            addTerminalLine('system', `Meta de agua actualizada a ${waterTarget} vasos. 💧`);
+        });
+    }
+    renderWaterCups();
+
+    // -------------------------------------------------------------
+    // SISTEMA DE NOTAS CON SINCRONIZACIÓN
     // -------------------------------------------------------------
     let notebooks = [];
     let activeNotebookId = null;
@@ -185,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Guardar notebooks en Firebase
     const saveNotebooksToFirebase = async () => {
         if (!firestoreAvailable || isSyncing) return;
         updateSyncStatus('syncing');
@@ -196,19 +263,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastUpdated: new Date().toISOString()
             }, { merge: true });
             updateSyncStatus('synced');
-            if (autosaveStatus) {
-                autosaveStatus.textContent = "✓ Sincronizado";
-                setTimeout(() => {
-                    if (autosaveStatus) autosaveStatus.textContent = "Listo";
-                }, 1500);
-            }
         } catch (error) {
             console.error('Error saving notebooks:', error);
             updateSyncStatus('offline');
         }
     };
 
-    // Cargar notebooks desde localStorage
     const loadNotebooksFromLocal = () => {
         const localNotebooks = loadState('studyflow-notebooks-list', null);
         const defaultNotebooks = [
@@ -216,7 +276,6 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: "nb-db", title: "🗄️ Bases de Datos", content: "" },
             { id: "nb-sys", title: "🌐 Redes y Sistemas", content: "" }
         ];
-        
         if (localNotebooks && localNotebooks.length > 0) {
             notebooks = localNotebooks;
             activeNotebookId = localStorage.getItem('studyflow-active-notebook-id') || notebooks[0]?.id;
@@ -228,62 +287,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Guardar contenido actual
     const saveCurrentNotebookContent = async () => {
         const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
         if (activeNb && noteArea && activeNb.content !== noteArea.value) {
             activeNb.content = noteArea.value;
             saveState('studyflow-notebooks-list', notebooks);
-            if (firestoreAvailable) {
-                await saveNotebooksToFirebase();
-            }
+            if (firestoreAvailable) await saveNotebooksToFirebase();
             return true;
         }
         return false;
     };
 
-    // Cargar cuaderno activo
     const loadActiveNotebook = () => {
         const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-        if (activeNb && noteArea) {
-            if (noteArea.value !== activeNb.content) {
-                noteArea.value = activeNb.content || '';
-            }
-        }
-        if (activeTitleInput && activeNb) {
-            activeTitleInput.value = activeNb.title;
-        }
+        if (activeNb && noteArea) noteArea.value = activeNb.content || '';
+        if (activeTitleInput && activeNb) activeTitleInput.value = activeNb.title;
     };
 
-    // Autosave
     let autosaveTimeout = null;
     const triggerAutosave = () => {
         if (autosaveStatus) autosaveStatus.textContent = "Guardando...";
         clearTimeout(autosaveTimeout);
         autosaveTimeout = setTimeout(async () => {
             await saveCurrentNotebookContent();
-            if (autosaveStatus) {
-                autosaveStatus.textContent = "✓ Guardado";
-                setTimeout(() => {
-                    if (autosaveStatus && autosaveStatus.textContent === "✓ Guardado") {
-                        autosaveStatus.textContent = "Listo";
-                    }
-                }, 1000);
-            }
+            if (autosaveStatus) autosaveStatus.textContent = "✓ Guardado";
+            setTimeout(() => { if (autosaveStatus) autosaveStatus.textContent = "Listo"; }, 1000);
         }, 800);
     };
 
-    // Renderizar sidebar de cuadernos
     const renderNotebooksSidebar = () => {
         if (!notebooksListEl) return;
         notebooksListEl.innerHTML = '';
-        
         notebooks.forEach(nb => {
             const li = document.createElement('li');
             li.className = `notebook-item ${nb.id === activeNotebookId ? 'active' : ''}`;
             li.dataset.id = nb.id;
             li.innerHTML = `<span class="notebook-item-title">${escapeHTML(nb.title)}</span>`;
-            
             const isDefault = ['nb-prog', 'nb-db', 'nb-sys'].includes(nb.id);
             if (!isDefault) {
                 const btnDelete = document.createElement('button');
@@ -293,9 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                     if (confirm(`¿Borrar "${nb.title}"?`)) {
                         notebooks = notebooks.filter(item => item.id !== nb.id);
-                        if (activeNotebookId === nb.id) {
-                            activeNotebookId = notebooks[0]?.id || 'nb-prog';
-                        }
+                        if (activeNotebookId === nb.id) activeNotebookId = notebooks[0]?.id || 'nb-prog';
                         saveState('studyflow-notebooks-list', notebooks);
                         localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
                         if (firestoreAvailable) await saveNotebooksToFirebase();
@@ -306,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 li.appendChild(btnDelete);
             }
-            
             li.addEventListener('click', async () => {
                 if (activeNotebookId === nb.id) return;
                 await saveCurrentNotebookContent();
@@ -316,16 +352,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderNotebooksSidebar();
                 loadActiveNotebook();
             });
-            
             notebooksListEl.appendChild(li);
         });
     };
 
-    // Event listeners para notas
-    if (noteArea) {
-        noteArea.addEventListener('input', triggerAutosave);
-    }
-    
+    if (noteArea) noteArea.addEventListener('input', triggerAutosave);
     if (activeTitleInput) {
         activeTitleInput.addEventListener('input', async () => {
             const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
@@ -337,29 +368,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
     if (btnSaveNote) {
         btnSaveNote.addEventListener('click', async () => {
             await saveCurrentNotebookContent();
             btnSaveNote.innerHTML = '<i class="fa-solid fa-check"></i> Guardado!';
-            setTimeout(() => {
-                btnSaveNote.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
-            }, 1500);
+            setTimeout(() => btnSaveNote.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar', 1500);
             addTerminalLine('system', '📝 Notas guardadas y sincronizadas');
         });
     }
-
     if (btnClearNote && noteArea) {
         btnClearNote.addEventListener('click', async () => {
             const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-            if (confirm(`¿Borrar todos los apuntes de "${activeNb?.title}"?`)) {
+            if (confirm(`¿Borrar apuntes de "${activeNb?.title}"?`)) {
                 noteArea.value = '';
                 await saveCurrentNotebookContent();
                 addTerminalLine('system', `📓 Apuntes borrados de "${activeNb?.title}"`);
             }
         });
     }
-
     if (btnCreateNotebook) {
         btnCreateNotebook.addEventListener('click', async () => {
             const name = prompt('Nombre del nuevo cuaderno:', 'Nuevo Cuaderno');
@@ -376,17 +402,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar notebooks
     loadNotebooksFromLocal();
     renderNotebooksSidebar();
     loadActiveNotebook();
 
-    // Suscribir notebooks a Firebase (sincronización en tiempo real)
     if (firestoreAvailable) {
         db.collection('estudioflow').doc('notebooks').onSnapshot((doc) => {
-            if (doc.exists && !isSyncing) {
+            if (doc.exists && !isSyncing && doc.data().notebooks) {
                 const data = doc.data();
-                if (data.notebooks && JSON.stringify(notebooks) !== JSON.stringify(data.notebooks)) {
+                if (JSON.stringify(notebooks) !== JSON.stringify(data.notebooks)) {
                     isSyncing = true;
                     notebooks = data.notebooks;
                     activeNotebookId = data.activeNotebookId;
@@ -394,76 +418,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
                     renderNotebooksSidebar();
                     loadActiveNotebook();
-                    addTerminalLine('system', '☁️ Notas sincronizadas desde la nube');
+                    addTerminalLine('system', '☁️ Notas sincronizadas');
                     isSyncing = false;
                 }
-            } else if (!doc.exists && notebooks.length > 0) {
-                // Primera vez - subir datos locales
-                saveNotebooksToFirebase();
             }
-        }, (error) => {
-            console.error('Firestore error:', error);
-            updateSyncStatus('offline');
         });
     }
 
-    // Mensaje de bienvenida
-    setTimeout(() => {
-        if (firestoreAvailable) {
-            addTerminalLine('system', '🎉 ¡Sincronización en tiempo real activa! Tus notas se actualizan entre dispositivos');
-        } else {
-            addTerminalLine('system', '📁 Modo local - Firebase no conectado');
-        }
-    }, 1000);
-
     // -------------------------------------------------------------
-    // TABS NAVIGATION
-    // -------------------------------------------------------------
-    const navDashboard = document.getElementById('nav-dashboard');
-    const navTasks = document.getElementById('nav-tasks');
-    const navTimer = document.getElementById('nav-timer');
-    const navNotes = document.getElementById('nav-notes');
-    const navRoutines = document.getElementById('nav-routines');
-    const sectionDashboard = document.getElementById('section-dashboard');
-    const sectionRoutines = document.getElementById('section-routines');
-    const sectionNotes = document.getElementById('section-notes');
-
-    const showSection = (section) => {
-        if (sectionDashboard) sectionDashboard.classList.add('hidden');
-        if (sectionRoutines) sectionRoutines.classList.add('hidden');
-        if (sectionNotes) sectionNotes.classList.add('hidden');
-        if (section === 'dashboard' && sectionDashboard) sectionDashboard.classList.remove('hidden');
-        else if (section === 'routines' && sectionRoutines) sectionRoutines.classList.remove('hidden');
-        else if (section === 'notes' && sectionNotes) sectionNotes.classList.remove('hidden');
-    };
-
-    const setActiveNav = (activeNav) => {
-        [navDashboard, navTasks, navTimer, navNotes, navRoutines].forEach(nav => {
-            if (nav) nav.classList.remove('active');
-        });
-        if (activeNav) activeNav.classList.add('active');
-    };
-
-    if (navDashboard) navDashboard.addEventListener('click', (e) => {
-        e.preventDefault(); setActiveNav(navDashboard); showSection('dashboard');
-    });
-    if (navNotes) navNotes.addEventListener('click', (e) => {
-        e.preventDefault(); setActiveNav(navNotes); showSection('notes');
-    });
-    if (navTasks) navTasks.addEventListener('click', (e) => {
-        e.preventDefault(); setActiveNav(navTasks); showSection('dashboard');
-        document.querySelector('.widget-tasks')?.scrollIntoView({ behavior: 'smooth' });
-    });
-    if (navTimer) navTimer.addEventListener('click', (e) => {
-        e.preventDefault(); setActiveNav(navTimer); showSection('dashboard');
-        document.querySelector('.widget-pomodoro')?.scrollIntoView({ behavior: 'smooth' });
-    });
-    if (navRoutines) navRoutines.addEventListener('click', (e) => {
-        e.preventDefault(); setActiveNav(navRoutines); showSection('routines');
-    });
-
-    // -------------------------------------------------------------
-    // POMODORO TIMER (versión simplificada)
+    // POMODORO TIMER
     // -------------------------------------------------------------
     let timerInterval = null;
     let totalSeconds = 1500;
@@ -571,15 +534,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnCloseModal && alarmModal) {
         btnCloseModal.addEventListener('click', () => {
             alarmModal.classList.add('hidden');
-            if (bellSound) {
-                bellSound.pause();
-                bellSound.currentTime = 0;
-            }
+            if (bellSound) bellSound.pause();
         });
     }
 
     // -------------------------------------------------------------
-    // TERMINAL COMMANDS
+    // TABS NAVIGATION
+    // -------------------------------------------------------------
+    const navDashboard = document.getElementById('nav-dashboard');
+    const navTasks = document.getElementById('nav-tasks');
+    const navTimer = document.getElementById('nav-timer');
+    const navNotes = document.getElementById('nav-notes');
+    const navRoutines = document.getElementById('nav-routines');
+    const sectionDashboard = document.getElementById('section-dashboard');
+    const sectionRoutines = document.getElementById('section-routines');
+    const sectionNotes = document.getElementById('section-notes');
+
+    const showSection = (section) => {
+        if (sectionDashboard) sectionDashboard.classList.add('hidden');
+        if (sectionRoutines) sectionRoutines.classList.add('hidden');
+        if (sectionNotes) sectionNotes.classList.add('hidden');
+        if (section === 'dashboard' && sectionDashboard) sectionDashboard.classList.remove('hidden');
+        else if (section === 'routines' && sectionRoutines) sectionRoutines.classList.remove('hidden');
+        else if (section === 'notes' && sectionNotes) sectionNotes.classList.remove('hidden');
+    };
+
+    const setActiveNav = (activeNav) => {
+        [navDashboard, navTasks, navTimer, navNotes, navRoutines].forEach(nav => {
+            if (nav) nav.classList.remove('active');
+        });
+        if (activeNav) activeNav.classList.add('active');
+    };
+
+    if (navDashboard) navDashboard.addEventListener('click', (e) => {
+        e.preventDefault(); setActiveNav(navDashboard); showSection('dashboard');
+    });
+    if (navNotes) navNotes.addEventListener('click', (e) => {
+        e.preventDefault(); setActiveNav(navNotes); showSection('notes');
+    });
+    if (navTasks) navTasks.addEventListener('click', (e) => {
+        e.preventDefault(); setActiveNav(navTasks); showSection('dashboard');
+        document.querySelector('.widget-tasks')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    if (navTimer) navTimer.addEventListener('click', (e) => {
+        e.preventDefault(); setActiveNav(navTimer); showSection('dashboard');
+        document.querySelector('.widget-pomodoro')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    if (navRoutines) navRoutines.addEventListener('click', (e) => {
+        e.preventDefault(); setActiveNav(navRoutines); showSection('routines');
+    });
+
+    // -------------------------------------------------------------
+    // TERMINAL
     // -------------------------------------------------------------
     const terminalInput = document.getElementById('terminal-input');
     if (terminalInput) {
@@ -588,20 +594,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cmd = terminalInput.value.trim().toLowerCase();
                 if (cmd) {
                     addTerminalLine('input', cmd);
-                    if (cmd === 'help') {
-                        addTerminalLine('output', 'Comandos: help, clear, date, todo');
-                    } else if (cmd === 'clear') {
-                        const terminalOut = document.getElementById('terminal-output');
-                        if (terminalOut) terminalOut.innerHTML = '';
-                    } else if (cmd === 'date') {
-                        addTerminalLine('output', new Date().toString());
-                    } else if (cmd === 'todo') {
+                    if (cmd === 'help') addTerminalLine('output', 'Comandos: help, clear, date, todo');
+                    else if (cmd === 'clear') { const out = document.getElementById('terminal-output'); if (out) out.innerHTML = ''; }
+                    else if (cmd === 'date') addTerminalLine('output', new Date().toString());
+                    else if (cmd === 'todo') {
                         const pending = tasks.filter(t => !t.completed);
                         if (pending.length === 0) addTerminalLine('output', 'No hay tareas pendientes');
                         else pending.forEach(t => addTerminalLine('output', `- ${t.title}`));
-                    } else {
-                        addTerminalLine('output', `Comando no reconocido: ${cmd}`);
                     }
+                    else addTerminalLine('output', `Comando no reconocido: ${cmd}`);
                     terminalInput.value = '';
                 }
             }
@@ -609,7 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------
-    // LOFI PLAYER SIMPLIFICADO
+    // LOFI PLAYER
     // -------------------------------------------------------------
     const lofiAudio = document.getElementById('lofi-audio');
     const btnLofiPlay = document.getElementById('btn-lofi-play');
@@ -638,6 +639,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         btnLofiPlay.addEventListener('click', () => isLofiPlaying ? stopLofi() : playLofi());
         if (lofiVolume) lofiVolume.addEventListener('input', (e) => lofiAudio.volume = e.target.value);
-        if (lofiSelect) lofiSelect.addEventListener('change', () => { if (isLofiPlaying) { stopLofi(); setTimeout(playLofi, 100); } });
     }
+
+    setTimeout(() => {
+        if (firestoreAvailable) addTerminalLine('system', '🎉 Sincronización en tiempo real activa');
+        else addTerminalLine('system', '📁 Modo local');
+    }, 500);
 });
