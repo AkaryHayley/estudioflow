@@ -609,107 +609,81 @@ document.addEventListener('DOMContentLoaded', () => {
         addTerminalLine('system', firestoreAvailable ? '🎉 Sincronización en tiempo real activa!' : '📁 Modo local - Firebase no conectado');
     }, 500);
 
+
        // -------------------------------------------------------------
-    // RULETA DE CASTIGOS
+    // RULETA DE CASTIGOS - CÓDIGO COMPLETO
     // -------------------------------------------------------------
     
-    // Lista de castigos predeterminados
-    const defaultPunishments = [
-        { id: 'p1', name: "Ahorro Obligatorio 💸", desc: "Depositar 5 Bs en tu frasco de ahorros. ¡Disciplina financiera!", count: 0 },
-        { id: 'p2', name: "Cardio Flash 🧘", desc: "Realizar 30 sentadillas suaves para reactivar el cuerpo", count: 0 },
-        { id: 'p3', name: "Desintoxicación Móvil 📵", desc: "5 horas sin mirar el celular. ¡Foco total!", count: 0 },
+    // Castigos predeterminados
+    let punishmentsList = [
+        { id: 'p1', name: "Ahorro Obligatorio 💸", desc: "Depositar 5 Bs en tu frasco de ahorros", count: 0 },
+        { id: 'p2', name: "Cardio Flash 🧘", desc: "Realizar 15 sentadillas suaves", count: 0 },
+        { id: 'p3', name: "Desintoxicación Móvil 📵", desc: "1 hora sin mirar el celular", count: 0 },
         { id: 'p4', name: "Fuerza Gamer ⚡", desc: "Hacer 10 flexiones de pecho", count: 0 },
-        { id: 'p5', name: "Orden Relámpago 🫧", desc: "Hacer limpieza del cuarto/taller trapeando", count: 0 },
-        { id: 'p6', name: "Estiramiento Zen ☁️", desc: "20 minutos de estiramientos de espalda y cuello", count: 0 }
+        { id: 'p5', name: "Orden Relámpago 🫧", desc: "Organizar tu escritorio 5 minutos", count: 0 },
+        { id: 'p6', name: "Estiramiento Zen ☁️", desc: "5 minutos de estiramientos", count: 0 }
     ];
     
-    let punishments = loadState('punishments-list', defaultPunishments);
-    let currentRotation = 0;
-    let isSpinning = false;
+    let currentRotationDeg = 0;
+    let isSpinningRoulette = false;
     
-    // Elementos DOM
-    const rouletteWheel = document.getElementById('roulette-wheel');
-    const btnSpinRoulette = document.getElementById('btn-spin-roulette');
-    const punishmentText = document.getElementById('punishment-text');
-    const punishmentResultCard = document.getElementById('punishment-result-card');
-    const expiredCountSpan = document.getElementById('expired-count');
-    const punishmentWidget = document.getElementById('punishment-widget');
-    const ledgerList = document.getElementById('punishment-ledger-list');
-    const btnAddCustom = document.getElementById('btn-add-custom-punishment');
-    const newPunishmentName = document.getElementById('new-punishment-name');
-    const newPunishmentDesc = document.getElementById('new-punishment-desc');
+    const wheelElement = document.getElementById('roulette-wheel');
+    const spinButton = document.getElementById('btn-spin-roulette');
+    const punishmentResult = document.getElementById('punishment-text');
+    const resultCard = document.getElementById('punishment-result-card');
+    const expiredCountSpanRuleta = document.getElementById('expired-count');
+    const punishmentWidgetRuleta = document.getElementById('punishment-widget');
+    const ledgerListRuleta = document.getElementById('punishment-ledger-list');
+    const btnAddCustomRuleta = document.getElementById('btn-add-custom-punishment');
+    const newPunishmentNameRuleta = document.getElementById('new-punishment-name');
+    const newPunishmentDescRuleta = document.getElementById('new-punishment-desc');
     
-    // Sincronizar castigos con Firebase
-    const syncPunishments = () => {
-        if (firestoreAvailable) {
-            db.collection('estudioflow').doc('punishments').set({ punishments }, { merge: true });
-        }
-    };
-    
-    // Obtener tareas expiradas
-    const getExpiredTasksCount = () => {
-        const currentMinutes = getCurrentMinutes();
-        let expired = 0;
+    // Función para obtener tareas expiradas
+    const getExpiredTasks = () => {
+        const currentMin = getCurrentMinutes();
+        let expired = [];
         
-        const checkExpired = (routines) => {
+        const checkRoutines = (routines, block) => {
             routines.forEach(r => {
                 if (!r.completed && !r.processedByRoulette) {
                     const endMin = timeToMinutes(r.endTime);
-                    if (currentMinutes > endMin) expired++;
+                    if (currentMin > endMin) {
+                        expired.push({ ...r, block });
+                    }
                 }
             });
         };
         
-        checkExpired(morningRoutines);
-        checkExpired(afternoonRoutines);
-        checkExpired(eveningRoutines);
+        checkRoutines(morningRoutines, 'morning');
+        checkRoutines(afternoonRoutines, 'afternoon');
+        checkRoutines(eveningRoutines, 'evening');
         
         return expired;
     };
     
-    // Obtener primera tarea expirada no procesada
-    const getFirstExpiredRoutine = () => {
-        const currentMinutes = getCurrentMinutes();
+    // Actualizar contador de expiradas
+    const updateExpiredCount = () => {
+        const expired = getExpiredTasks();
+        const totalPending = punishmentsList.reduce((sum, p) => sum + (p.count || 0), 0);
         
-        for (let r of morningRoutines) {
-            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
-                return { block: 'morning', routine: r };
-            }
-        }
-        for (let r of afternoonRoutines) {
-            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
-                return { block: 'afternoon', routine: r };
-            }
-        }
-        for (let r of eveningRoutines) {
-            if (!r.completed && !r.processedByRoulette && currentMinutes > timeToMinutes(r.endTime)) {
-                return { block: 'evening', routine: r };
-            }
-        }
-        return null;
-    };
-    
-    // Actualizar widget de castigos
-    const updatePunishmentWidget = () => {
-        if (!punishmentWidget) return;
-        const expiredCount = getExpiredTasksCount();
-        const pendingLedger = punishments.reduce((sum, p) => sum + (p.count || 0), 0);
+        if (expiredCountSpanRuleta) expiredCountSpanRuleta.textContent = expired.length;
         
-        if (expiredCountSpan) expiredCountSpan.textContent = expiredCount;
-        
-        if (expiredCount > 0 || pendingLedger > 0) {
-            punishmentWidget.classList.remove('hidden');
-            if (btnSpinRoulette) btnSpinRoulette.disabled = expiredCount === 0;
-        } else {
-            punishmentWidget.classList.add('hidden');
+        if (punishmentWidgetRuleta) {
+            if (expired.length > 0 || totalPending > 0) {
+                punishmentWidgetRuleta.classList.remove('hidden');
+                if (spinButton) spinButton.disabled = expired.length === 0;
+            } else {
+                punishmentWidgetRuleta.classList.add('hidden');
+            }
         }
     };
     
     // Renderizar ruleta
-    const renderRoulette = () => {
-        if (!rouletteWheel) return;
-        rouletteWheel.innerHTML = '';
-        const N = punishments.length;
+    const renderRouletteWheel = () => {
+        if (!wheelElement) return;
+        wheelElement.innerHTML = '';
+        
+        const N = punishmentsList.length;
         if (N === 0) return;
         
         const sectorAngle = 360 / N;
@@ -722,30 +696,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const end = (i + 1) * sectorAngle;
             gradientParts.push(`${color} ${start}deg ${end}deg`);
         }
-        rouletteWheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+        wheelElement.style.background = `conic-gradient(${gradientParts.join(', ')})`;
         
-        // Agregar etiquetas
-        punishments.forEach((p, i) => {
+        // Etiquetas
+        punishmentsList.forEach((p, i) => {
             const angle = (i * sectorAngle) + (sectorAngle / 2);
             const label = document.createElement('div');
             label.className = 'wheel-label';
-            label.textContent = p.name.length > 15 ? p.name.substring(0, 12) + '...' : p.name;
+            label.textContent = p.name.length > 12 ? p.name.substring(0, 10) + '…' : p.name;
             label.style.transform = `translate(-50%, -50%) rotate(${angle}deg) translateY(-75px)`;
-            rouletteWheel.appendChild(label);
+            wheelElement.appendChild(label);
         });
     };
     
-    // Renderizar ledger de castigos pendientes
-    const renderLedger = () => {
-        if (!ledgerList) return;
-        ledgerList.innerHTML = '';
+    // Renderizar ledger
+    const renderPunishmentLedger = () => {
+        if (!ledgerListRuleta) return;
+        ledgerListRuleta.innerHTML = '';
         
-        if (punishments.length === 0) {
-            ledgerList.innerHTML = '<li class="ledger-empty-item">No hay castigos creados</li>';
+        if (punishmentsList.length === 0) {
+            ledgerListRuleta.innerHTML = '<li class="ledger-empty-item">No hay castigos creados</li>';
             return;
         }
         
-        punishments.forEach(p => {
+        punishmentsList.forEach(p => {
             const count = p.count || 0;
             const li = document.createElement('li');
             li.className = 'ledger-item';
@@ -753,165 +727,161 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="ledger-item-info">
                     <span class="ledger-item-name">${escapeHTML(p.name)}</span>
                     <span class="ledger-item-badge ${count > 0 ? 'pending' : 'clear'}">
-                        ${count > 0 ? `Pendientes: ${count}` : '✓ Completado'}
+                        ${count > 0 ? `Pendientes: ${count}` : '✓ Al día'}
                     </span>
                 </div>
                 <div class="ledger-item-actions">
-                    <button class="btn-ledger-add" data-id="${p.id}" title="Añadir castigo">+</button>
-                    <button class="btn-ledger-deduct" data-id="${p.id}" ${count === 0 ? 'disabled' : ''} title="Cumplir castigo">✓</button>
+                    <button class="btn-ledger-add" data-id="${p.id}">➕</button>
+                    <button class="btn-ledger-deduct" data-id="${p.id}" ${count === 0 ? 'disabled' : ''}>✅</button>
                 </div>
             `;
             
             li.querySelector('.btn-ledger-add').addEventListener('click', () => {
                 p.count = (p.count || 0) + 1;
-                saveState('punishments-list', punishments);
-                syncPunishments();
-                renderLedger();
-                updatePunishmentWidget();
-                addTerminalLine('system', `➕ Añadiste: "${p.name}" (ahora ${p.count})`);
+                localStorage.setItem('punishments-list', JSON.stringify(punishmentsList));
+                renderPunishmentLedger();
+                updateExpiredCount();
+                addTerminalLine('system', `➕ Añadiste castigo: "${p.name}" (total: ${p.count})`);
             });
             
             li.querySelector('.btn-ledger-deduct').addEventListener('click', () => {
                 if (p.count > 0) {
                     p.count--;
-                    saveState('punishments-list', punishments);
-                    syncPunishments();
-                    renderLedger();
-                    updatePunishmentWidget();
-                    addTerminalLine('system', `✅ Completaste: "${p.name}" (restan ${p.count})`);
+                    localStorage.setItem('punishments-list', JSON.stringify(punishmentsList));
+                    renderPunishmentLedger();
+                    updateExpiredCount();
+                    addTerminalLine('system', `✅ Completaste castigo: "${p.name}" (restan: ${p.count})`);
                 }
             });
             
-            ledgerList.appendChild(li);
+            ledgerListRuleta.appendChild(li);
         });
     };
     
     // Girar ruleta
-    const spinRoulette = () => {
-        if (isSpinning) return;
+    const spinRouletteWheel = () => {
+        if (isSpinningRoulette) return;
         
-        const expiredRoutine = getFirstExpiredRoutine();
-        if (!expiredRoutine) {
+        const expiredTasks = getExpiredTasks();
+        if (expiredTasks.length === 0) {
             addTerminalLine('system', '✨ No hay tareas expiradas para procesar');
             return;
         }
         
-        isSpinning = true;
-        btnSpinRoulette.disabled = true;
+        const targetTask = expiredTasks[0];
+        isSpinningRoulette = true;
+        if (spinButton) spinButton.disabled = true;
         
-        const N = punishments.length;
+        const N = punishmentsList.length;
         const selectedIndex = Math.floor(Math.random() * N);
         const sectorAngle = 360 / N;
-        const sectorCenter = (selectedIndex * sectorAngle) + (sectorAngle / 2);
-        const randomSpins = 6 + Math.floor(Math.random() * 4);
-        const targetAngle = 360 - sectorCenter;
-        const newRotation = currentRotation + (360 * randomSpins) + targetAngle;
+        const targetAngle = 360 - ((selectedIndex * sectorAngle) + (sectorAngle / 2));
+        const spins = 8 + Math.floor(Math.random() * 4);
+        const newRotation = currentRotationDeg + (360 * spins) + targetAngle;
         
-        currentRotation = newRotation;
-        rouletteWheel.style.transition = 'transform 3.5s cubic-bezier(0.2, 0.9, 0.1, 1.1)';
-        rouletteWheel.style.transform = `rotate(${currentRotation}deg)`;
+        currentRotationDeg = newRotation;
+        wheelElement.style.transition = 'transform 3.5s cubic-bezier(0.2, 0.9, 0.1, 1.1)';
+        wheelElement.style.transform = `rotate(${currentRotationDeg}deg)`;
         
-        addTerminalLine('system', `🎰 Girando ruleta por: "${expiredRoutine.routine.text}"...`);
+        addTerminalLine('system', `🎰 Girando ruleta por: "${targetTask.text}"...`);
         
         setTimeout(() => {
-            const punishment = punishments[selectedIndex];
-            punishment.count = (punishment.count || 0) + 1;
-            saveState('punishments-list', punishments);
-            syncPunishments();
+            const selected = punishmentsList[selectedIndex];
+            selected.count = (selected.count || 0) + 1;
+            localStorage.setItem('punishments-list', JSON.stringify(punishmentsList));
             
             // Marcar tarea como procesada
-            expiredRoutine.routine.processedByRoulette = true;
-            if (expiredRoutine.block === 'morning') {
-                saveState('routines-morning', morningRoutines);
-            } else if (expiredRoutine.block === 'afternoon') {
-                saveState('routines-afternoon', afternoonRoutines);
-            } else {
-                saveState('routines-evening', eveningRoutines);
+            if (targetTask.block === 'morning') {
+                const idx = morningRoutines.findIndex(r => r.id === targetTask.id);
+                if (idx !== -1) morningRoutines[idx].processedByRoulette = true;
+                localStorage.setItem('routines-morning', JSON.stringify(morningRoutines));
+            } else if (targetTask.block === 'afternoon') {
+                const idx = afternoonRoutines.findIndex(r => r.id === targetTask.id);
+                if (idx !== -1) afternoonRoutines[idx].processedByRoulette = true;
+                localStorage.setItem('routines-afternoon', JSON.stringify(afternoonRoutines));
+            } else if (targetTask.block === 'evening') {
+                const idx = eveningRoutines.findIndex(r => r.id === targetTask.id);
+                if (idx !== -1) eveningRoutines[idx].processedByRoulette = true;
+                localStorage.setItem('routines-evening', JSON.stringify(eveningRoutines));
             }
             
             renderAllRoutines();
-            renderLedger();
-            updatePunishmentWidget();
+            renderPunishmentLedger();
+            updateExpiredCount();
             
-            if (punishmentText && punishmentResultCard) {
-                punishmentText.innerHTML = `
-                    <strong>${punishment.name}</strong><br>
-                    ${punishment.desc}<br>
-                    <span style="color: var(--secondary);">Acumulado: ${punishment.count}</span>
+            if (punishmentResult && resultCard) {
+                punishmentResult.innerHTML = `
+                    <strong>${selected.name}</strong><br>
+                    ${selected.desc}<br>
+                    <span style="color: var(--secondary);">Acumulado: ${selected.count}</span>
                 `;
-                punishmentResultCard.classList.remove('hidden');
-                punishmentResultCard.style.animation = 'popIn 0.5s ease';
-                setTimeout(() => {
-                    punishmentResultCard.style.animation = '';
-                }, 500);
+                resultCard.classList.remove('hidden');
+                setTimeout(() => resultCard.classList.add('hidden'), 5000);
             }
             
-            addTerminalLine('system', `⚠️ Castigo asignado: "${punishment.name}" por "${expiredRoutine.routine.text}"`);
+            addTerminalLine('system', `⚠️ Castigo: "${selected.name}" por "${targetTask.text}"`);
             
-            isSpinning = false;
-            btnSpinRoulette.disabled = false;
+            isSpinningRoulette = false;
+            if (spinButton) spinButton.disabled = false;
         }, 3500);
     };
     
     // Crear castigo personalizado
-    if (btnAddCustom) {
-        btnAddCustom.addEventListener('click', () => {
-            const name = newPunishmentName?.value.trim();
-            const desc = newPunishmentDesc?.value.trim() || "Castigo personalizado";
+    if (btnAddCustomRuleta) {
+        btnAddCustomRuleta.addEventListener('click', () => {
+            const name = newPunishmentNameRuleta?.value.trim();
+            const desc = newPunishmentDescRuleta?.value.trim() || "Castigo personalizado";
             
             if (!name) {
-                alert('Por favor ingresa un nombre para el castigo');
+                alert('Ingresa un nombre para el castigo');
                 return;
             }
             
-            if (punishments.length >= 10) {
+            if (punishmentsList.length >= 10) {
                 alert('Máximo 10 castigos en la ruleta');
                 return;
             }
             
-            const newId = 'custom-' + Date.now();
-            punishments.push({
-                id: newId,
+            punishmentsList.push({
+                id: 'custom-' + Date.now(),
                 name: name,
                 desc: desc,
                 count: 0
             });
             
-            saveState('punishments-list', punishments);
-            syncPunishments();
-            renderRoulette();
-            renderLedger();
-            updatePunishmentWidget();
+            localStorage.setItem('punishments-list', JSON.stringify(punishmentsList));
+            renderRouletteWheel();
+            renderPunishmentLedger();
+            updateExpiredCount();
             
-            if (newPunishmentName) newPunishmentName.value = '';
-            if (newPunishmentDesc) newPunishmentDesc.value = '';
+            if (newPunishmentNameRuleta) newPunishmentNameRuleta.value = '';
+            if (newPunishmentDescRuleta) newPunishmentDescRuleta.value = '';
             
             addTerminalLine('system', `🎰 Nuevo castigo añadido: "${name}"`);
         });
     }
     
     // Event listener del botón girar
-    if (btnSpinRoulette) {
-        btnSpinRoulette.addEventListener('click', spinRoulette);
+    if (spinButton) {
+        spinButton.addEventListener('click', spinRouletteWheel);
+    }
+    
+    // Cargar castigos guardados
+    const savedPunishments = localStorage.getItem('punishments-list');
+    if (savedPunishments) {
+        punishmentsList = JSON.parse(savedPunishments);
     }
     
     // Inicializar ruleta
-    renderRoulette();
-    renderLedger();
-    updatePunishmentWidget();
+    renderRouletteWheel();
+    renderPunishmentLedger();
+    updateExpiredCount();
     
-    // Suscribir castigos a Firebase
-    if (firestoreAvailable) {
-        db.collection('estudioflow').doc('punishments').onSnapshot((doc) => {
-            if (doc.exists && !isSyncing && doc.data().punishments) {
-                isSyncing = true;
-                punishments = doc.data().punishments;
-                saveState('punishments-list', punishments);
-                renderRoulette();
-                renderLedger();
-                updatePunishmentWidget();
-                isSyncing = false;
-            }
-        });
-    }
+    // Hacer funciones globales para debugging
+    window.renderRouletteWheel = renderRouletteWheel;
+    window.renderPunishmentLedger = renderPunishmentLedger;
+    window.punishmentsList = punishmentsList;
+
+    
+    
 });
