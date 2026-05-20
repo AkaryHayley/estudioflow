@@ -2,25 +2,29 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>EstudioFlow | Dashboard de Productividad</title>
+    <meta name="description" content="Dashboard de productividad con sincronización en tiempo real para estudiantes">
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Firebase (versión compat) -->
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
+    <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
+        <!-- Orbes decorativos -->
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
         <div class="orb orb-3"></div>
 
+        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo-area">
                 <div class="logo-icon"><i class="fa-solid fa-terminal"></i></div>
@@ -35,6 +39,7 @@
                 <a href="#" class="nav-item" id="nav-routines"><i class="fa-solid fa-calendar-check"></i><span>Rutinas</span></a>
             </nav>
             
+            <!-- Lofi Player -->
             <div class="lofi-player">
                 <div class="player-header">
                     <span class="player-title"><i class="fa-solid fa-music"></i> Lofi Station</span>
@@ -64,6 +69,7 @@
             </div>
         </aside>
 
+        <!-- Main Content -->
         <main class="main-content">
             <header class="top-header">
                 <div class="welcome-text">
@@ -75,8 +81,10 @@
                 </div>
             </header>
 
+            <!-- Dashboard Section -->
             <div id="section-dashboard" class="tab-content">
                 <div class="dashboard-grid">
+                    <!-- Stats Row -->
                     <section class="stats-row">
                         <div class="stat-card">
                             <div class="stat-icon icon-tasks"><i class="fa-solid fa-list-check"></i></div>
@@ -92,7 +100,9 @@
                         </div>
                     </section>
 
+                    <!-- Widgets Container -->
                     <div class="widgets-container">
+                        <!-- Pomodoro Widget -->
                         <section class="card widget-pomodoro">
                             <div class="card-header"><h2><i class="fa-solid fa-hourglass-half"></i> Pomodoro</h2><span class="badge" id="timer-status">Foco</span></div>
                             <div class="timer-display">
@@ -124,6 +134,7 @@
                             </div>
                         </section>
 
+                        <!-- Water Tracker Widget -->
                         <section class="card widget-water" id="widget-water">
                             <div class="card-header"><h2><i class="fa-solid fa-glass-water"></i> Mis Vasitos</h2><span class="badge badge-water" id="water-target-badge">Meta: 6 vasos</span></div>
                             <div class="water-tracker-body">
@@ -142,6 +153,7 @@
                             </div>
                         </section>
 
+                        <!-- Tasks Widget -->
                         <section class="card widget-tasks">
                             <div class="card-header"><h2><i class="fa-solid fa-list-check"></i> Tareas</h2></div>
                             <div class="task-input-container">
@@ -153,6 +165,7 @@
                         </section>
                     </div>
 
+                    <!-- Terminal -->
                     <div class="widgets-container-full">
                         <section class="card widget-terminal widget-terminal-full">
                             <div class="card-header"><h2><i class="fa-solid fa-terminal"></i> Consola</h2><span class="badge badge-terminal">bash</span></div>
@@ -171,6 +184,7 @@
                 </div>
             </div>
 
+            <!-- Routines Section -->
             <div id="section-routines" class="tab-content hidden">
                 <div class="card realtime-clock-card">
                     <div class="realtime-clock-body">
@@ -187,9 +201,7 @@
                     <div class="card-header">
                         <h2><i class="fa-solid fa-calendar-check"></i> Rutinas Diarias</h2>
                         <div class="routine-header-actions">
-                            <button id="btn-edit-routines" class="btn btn-secondary btn-sm"><i class="fa-solid fa-gears"></i> Editar</button>
-                            <button id="btn-save-edited-routines" class="btn btn-primary btn-sm hidden"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
-                            <button id="btn-reset-routines" class="btn btn-tertiary btn-sm"><i class="fa-solid fa-arrows-rotate"></i> Reiniciar</button>
+                            <button id="btn-reset-routines" class="btn btn-tertiary btn-sm"><i class="fa-solid fa-arrows-rotate"></i> Reiniciar Día</button>
                         </div>
                     </div>
                     <div class="routines-grid">
@@ -199,23 +211,46 @@
                     </div>
                 </div>
 
+                <!-- Punishment Roulette -->
                 <div class="punishment-section card hidden" id="punishment-widget">
-                    <div class="punishment-header"><div class="punishment-title-area"><h3><i class="fa-solid fa-circle-radiation"></i> Ruleta de Castigos</h3><p>Tienes <span class="highlight-count" id="expired-count">0</span> tareas expiradas</p></div></div>
+                    <div class="punishment-header">
+                        <div class="punishment-title-area">
+                            <h3><i class="fa-solid fa-circle-radiation"></i> Ruleta de Castigos ☁️🎰</h3>
+                            <p>Tienes <span class="highlight-count" id="expired-count">0</span> tareas expiradas</p>
+                        </div>
+                    </div>
                     <div class="roulette-layout">
                         <div class="roulette-wrapper">
                             <div class="roulette-pointer"><i class="fa-solid fa-caret-down"></i></div>
                             <div class="roulette-wheel" id="roulette-wheel"></div>
                             <button id="btn-spin-roulette" class="btn btn-primary btn-spin"><i class="fa-solid fa-dice"></i> Girar Ruleta</button>
                         </div>
-                        <div class="punishment-display"><div class="punishment-display-card" id="punishment-result-card"><div class="p-card-header">Castigo</div><div class="p-card-body" id="punishment-text">Esperando giro...</div></div></div>
+                        <div class="punishment-display">
+                            <div class="punishment-display-card" id="punishment-result-card">
+                                <div class="p-card-header">Castigo Seleccionado</div>
+                                <div class="p-card-body" id="punishment-text">Gira la ruleta para recibir tu castigo</div>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div class="punishment-ledger-row">
-                        <div class="custom-punishment-box"><h4><i class="fa-solid fa-square-plus"></i> Nuevo Castigo</h4><div class="custom-punishment-form"><input type="text" id="new-punishment-name" placeholder="Nombre"><input type="text" id="new-punishment-desc" placeholder="Descripción"><button id="btn-add-custom-punishment" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i> Añadir</button></div></div>
-                        <div class="punishment-ledger-box"><h4><i class="fa-solid fa-clipboard-list"></i> Castigos Pendientes</h4><ul id="punishment-ledger-list" class="punishment-ledger-list"></ul></div>
+                        <div class="custom-punishment-box">
+                            <h4><i class="fa-solid fa-square-plus"></i> Crear Castigo</h4>
+                            <div class="custom-punishment-form">
+                                <input type="text" id="new-punishment-name" placeholder="Nombre del castigo">
+                                <input type="text" id="new-punishment-desc" placeholder="Descripción (opcional)">
+                                <button id="btn-add-custom-punishment" class="btn btn-secondary btn-sm"><i class="fa-solid fa-plus"></i> Añadir</button>
+                            </div>
+                        </div>
+                        <div class="punishment-ledger-box">
+                            <h4><i class="fa-solid fa-clipboard-list"></i> Castigos Pendientes</h4>
+                            <ul id="punishment-ledger-list" class="punishment-ledger-list"></ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Notes Section -->
             <div id="section-notes" class="tab-content hidden">
                 <div class="card notes-page-card">
                     <div class="notes-layout">
@@ -242,12 +277,21 @@
         </main>
     </div>
 
+    <!-- Audio -->
     <audio id="bell-sound" preload="none"></audio>
-    <div id="alarm-modal" class="modal-overlay hidden"><div class="custom-modal"><div class="modal-icon"><i class="fa-solid fa-star"></i></div><h3 class="modal-title">¡Tiempo Concluido!</h3><p class="modal-message">Tómate un recreo, estira el cuerpo y toma agua. 🌤️</p><button id="btn-close-modal" class="btn btn-primary">Cerrar</button></div></div>
+    
+    <!-- Alarm Modal -->
+    <div id="alarm-modal" class="modal-overlay hidden">
+        <div class="custom-modal">
+            <div class="modal-icon"><i class="fa-solid fa-star"></i></div>
+            <h3 class="modal-title">¡Tiempo Concluido!</h3>
+            <p class="modal-message">Tómate un recreo, estira el cuerpo y toma agua. 🌤️</p>
+            <button id="btn-close-modal" class="btn btn-primary">Cerrar</button>
+        </div>
+    </div>
 
-    <!-- CONFIGURACIÓN DE FIREBASE GLOBAL -->
+    <!-- Firebase Config -->
     <script>
-        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCZBa3Lk2MuSiH9MqbZ3EoB6LLJmBVxhnk",
             authDomain: "estudioflow-db.firebaseapp.com",
@@ -257,29 +301,16 @@
             appId: "1:135944532489:web:9db3ba6e1488a9a040bed8"
         };
         
-        // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
-        
-        // Obtener instancia de Firestore
-        const db = firebase.firestore();
-        
-        // Hacer db disponible globalmente para debugging
-        window.db = db;
-        
-        // Verificar conexión
+        window.db = firebase.firestore();
+        window.firestoreAvailable = true;
         console.log('🔥 Firebase inicializado');
         
-        // Crear documento de prueba para verificar conexión
-        db.collection("estudioflow").doc("connection_test").set({
+        // Crear documento de prueba
+        window.db.collection("estudioflow").doc("connection_test").set({
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             status: "connected"
-        }).then(() => {
-            console.log('✅ Firestore conectado y escribiendo correctamente');
-            window.firestoreConnected = true;
-        }).catch((error) => {
-            console.error('❌ Error conectando a Firestore:', error);
-            console.log('⚠️ Asegúrate de haber creado la base de datos en Firebase Console');
-        });
+        }).catch(e => console.log('Firestore error:', e));
     </script>
 
     <script src="app.js"></script>
