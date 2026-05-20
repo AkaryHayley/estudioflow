@@ -1,17 +1,15 @@
 /* ==========================================
-   EstudioFlow JS - COMPLETO (con Water Tracker)
+   EstudioFlow JS - COMPLETO (Rutinas + Hora + Vasitos + Todo)
    ========================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------
-    // VERIFICAR FIREBASE
+    // FIREBASE Y HELPERS
     // -------------------------------------------------------------
     let db = window.db || null;
     let firestoreAvailable = !!db;
     let isSyncing = false;
-    
-    console.log('Firestore disponible:', firestoreAvailable);
-    
+
     const loadState = (key, defaultValue) => {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : defaultValue;
@@ -19,14 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveState = (key, value) => {
         localStorage.setItem(key, JSON.stringify(value));
     };
-    
+
     const escapeHTML = (str) => {
         if (!str) return '';
         return str.replace(/[&<>'"]/g, tag => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
         }[tag] || tag));
     };
-    
+
     const addTerminalLine = (type, text) => {
         const terminalOutput = document.getElementById('terminal-output');
         if (!terminalOutput) return;
@@ -42,12 +40,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // -------------------------------------------------------------
+    // RELOJ EN TIEMPO REAL
+    // -------------------------------------------------------------
+    const realtimeClockEl = document.getElementById('realtime-clock-display');
+    const updateRealtimeClock = () => {
+        if (!realtimeClockEl) return;
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        realtimeClockEl.textContent = `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    };
+    updateRealtimeClock();
+    setInterval(updateRealtimeClock, 1000);
+
+    // -------------------------------------------------------------
     // DATE
     // -------------------------------------------------------------
     const dateSpan = document.getElementById('current-date');
     if (dateSpan) {
-        dateSpan.textContent = new Date().toLocaleDateString('es-ES', { 
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        dateSpan.textContent = new Date().toLocaleDateString('es-ES', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
     }
 
@@ -78,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tasks.forEach(task => {
             const li = document.createElement('li');
             li.className = `task-item ${task.completed ? 'completed' : ''}`;
-            li.dataset.id = task.id;
             li.innerHTML = `
                 <div class="task-left">
                     <button class="task-checkbox"><i class="fa-solid fa-check"></i></button>
@@ -135,7 +148,136 @@ document.addEventListener('DOMContentLoaded', () => {
                 tasks = doc.data().tasks;
                 saveState('tasks-list', tasks);
                 renderTasks();
-                addTerminalLine('system', '☁️ Tareas sincronizadas');
+                isSyncing = false;
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // RUTINAS DIARIAS
+    // -------------------------------------------------------------
+    const defaultMorningRoutines = [
+        { id: 'm1', text: '🌅 Aseo personal', startTime: '08:00', endTime: '08:30', completed: false, processedByRoulette: false },
+        { id: 'm2', text: '🥞 Desayuno tierno', startTime: '08:30', endTime: '09:15', completed: false, processedByRoulette: false },
+        { id: 'm3', text: '🧘 Estiramientos matutinos', startTime: '09:15', endTime: '09:45', completed: false, processedByRoulette: false },
+        { id: 'm4', text: '🎮 Tiempo libre', startTime: '09:45', endTime: '10:45', completed: false, processedByRoulette: false },
+        { id: 'm5', text: '🎥 Grabar videos', startTime: '10:45', endTime: '11:45', completed: false, processedByRoulette: false },
+        { id: 'm6', text: '🎨 Ocio creativo', startTime: '11:45', endTime: '12:30', completed: false, processedByRoulette: false }
+    ];
+
+    const defaultAfternoonRoutines = [
+        { id: 'a1', text: '🍱 Almorzar', startTime: '12:30', endTime: '13:00', completed: false, processedByRoulette: false },
+        { id: 'a2', text: '💻 Clases Virtuales', startTime: '13:00', endTime: '19:00', completed: false, processedByRoulette: false },
+        { id: 'a3', text: '🙋 Participar activamente', startTime: '13:00', endTime: '19:00', completed: false, processedByRoulette: false },
+        { id: 'a4', text: '📝 Anotar apuntes', startTime: '13:00', endTime: '19:15', completed: false, processedByRoulette: false }
+    ];
+
+    const defaultEveningRoutines = [
+        { id: 'e1', text: '🌌 Cenar ligero', startTime: '19:15', endTime: '20:00', completed: false, processedByRoulette: false },
+        { id: 'e2', text: '🧠 Repaso Pomodoro', startTime: '20:00', endTime: '21:00', completed: false, processedByRoulette: false },
+        { id: 'e3', text: '✨ Skincare', startTime: '21:00', endTime: '21:45', completed: false, processedByRoulette: false },
+        { id: 'e4', text: '📵 Desconexión digital', startTime: '22:00', endTime: '23:00', completed: false, processedByRoulette: false }
+    ];
+
+    let morningRoutines = loadState('routines-morning', defaultMorningRoutines);
+    let afternoonRoutines = loadState('routines-afternoon', defaultAfternoonRoutines);
+    let eveningRoutines = loadState('routines-evening', defaultEveningRoutines);
+
+    const syncRoutines = () => {
+        if (firestoreAvailable) {
+            db.collection('estudioflow').doc('routines').set({ morningRoutines, afternoonRoutines, eveningRoutines }, { merge: true });
+        }
+    };
+
+    const timeToMinutes = (timeStr) => {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+    };
+
+    const getCurrentTimeMinutes = () => {
+        const now = new Date();
+        return now.getHours() * 60 + now.getMinutes();
+    };
+
+    const renderRoutines = () => {
+        const morningList = document.getElementById('morning-routine-list');
+        const afternoonList = document.getElementById('afternoon-routine-list');
+        const eveningList = document.getElementById('evening-routine-list');
+        
+        const currentMinutes = getCurrentTimeMinutes();
+        
+        const renderBlock = (listEl, routines) => {
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            routines.forEach(item => {
+                const startMin = timeToMinutes(item.startTime);
+                const endMin = timeToMinutes(item.endTime);
+                let state = 'active';
+                let checkboxIcon = '';
+                let badgeText = 'En curso';
+                
+                if (item.completed) {
+                    state = 'completed';
+                    checkboxIcon = '<i class="fa-solid fa-check"></i>';
+                    badgeText = '✓ Completada';
+                } else if (currentMinutes < startMin) {
+                    state = 'locked';
+                    checkboxIcon = '<i class="fa-solid fa-hourglass"></i>';
+                    badgeText = `🔒 ${item.startTime}`;
+                } else if (currentMinutes > endMin) {
+                    state = 'expired';
+                    checkboxIcon = '<i class="fa-solid fa-circle-xmark"></i>';
+                    badgeText = '⚠️ Expirada';
+                } else {
+                    state = 'active';
+                    badgeText = `🕐 ${item.startTime} - ${item.endTime}`;
+                }
+                
+                const li = document.createElement('li');
+                li.className = `routine-item ${state}`;
+                li.innerHTML = `
+                    <div class="routine-checkbox">${checkboxIcon}</div>
+                    <span class="routine-title">${escapeHTML(item.text)}</span>
+                    <span class="routine-time-badge ${state}">${badgeText}</span>
+                `;
+                li.addEventListener('click', () => {
+                    if (state === 'locked') {
+                        addTerminalLine('system', `⏰ "${item.text}" estará disponible a las ${item.startTime}`);
+                    } else if (state !== 'expired' && !item.completed) {
+                        item.completed = true;
+                        saveState('routines-morning', morningRoutines);
+                        saveState('routines-afternoon', afternoonRoutines);
+                        saveState('routines-evening', eveningRoutines);
+                        syncRoutines();
+                        renderRoutines();
+                        addTerminalLine('system', `✅ Completaste: "${item.text}"`);
+                    } else if (state === 'expired') {
+                        addTerminalLine('system', `⚠️ "${item.text}" expiró - tendrás un castigo en la ruleta`);
+                    }
+                });
+                listEl.appendChild(li);
+            });
+        };
+        
+        renderBlock(morningList, morningRoutines);
+        renderBlock(afternoonList, afternoonRoutines);
+        renderBlock(eveningList, eveningRoutines);
+    };
+
+    renderRoutines();
+
+    if (firestoreAvailable) {
+        db.collection('estudioflow').doc('routines').onSnapshot((doc) => {
+            if (doc.exists && !isSyncing && doc.data().morningRoutines) {
+                isSyncing = true;
+                morningRoutines = doc.data().morningRoutines;
+                afternoonRoutines = doc.data().afternoonRoutines;
+                eveningRoutines = doc.data().eveningRoutines;
+                saveState('routines-morning', morningRoutines);
+                saveState('routines-afternoon', afternoonRoutines);
+                saveState('routines-evening', eveningRoutines);
+                renderRoutines();
                 isSyncing = false;
             }
         });
@@ -162,6 +304,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const renderWaterCups = () => {
+        if (!waterCupsContainer) return;
+        waterCupsContainer.innerHTML = '';
+        for (let i = 0; i < waterTarget; i++) {
+            const cup = document.createElement('button');
+            cup.className = `water-cup ${i < waterCount ? 'filled' : ''}`;
+            cup.innerHTML = `<i class="fa-solid fa-droplet cup-icon"></i>`;
+            cup.addEventListener('click', () => setWaterCount(i + 1, true));
+            waterCupsContainer.appendChild(cup);
+        }
+        if (waterCountDisplay) waterCountDisplay.textContent = waterCount;
+        if (waterGoalDisplay) waterGoalDisplay.textContent = waterTarget;
+        if (waterTargetBadge) waterTargetBadge.textContent = `Meta: ${waterTarget} vasos`;
+        if (btnRemoveWater) btnRemoveWater.disabled = waterCount === 0;
+    };
+
+    const setWaterCount = (newCount, animate = true) => {
+        const prevCount = waterCount;
+        waterCount = Math.max(0, Math.min(newCount, waterTarget));
+        saveState('studyflow-water-count', waterCount);
+        syncWater();
+        renderWaterCups();
+        
+        if (animate && waterCount > prevCount && waterCupsContainer) {
+            const cups = waterCupsContainer.querySelectorAll('.water-cup');
+            const newlyFilled = cups[waterCount - 1];
+            if (newlyFilled) {
+                newlyFilled.classList.add('splash');
+                setTimeout(() => newlyFilled.classList.remove('splash'), 500);
+            }
+        }
+        
+        if (waterCount === waterTarget && waterCount > 0 && waterWidget) {
+            waterWidget.classList.add('goal-reached');
+            setTimeout(() => waterWidget.classList.remove('goal-reached'), 4500);
+            addTerminalLine('system', `💧 ¡Felicidades! Meta de ${waterTarget} vasos alcanzada.`);
+        }
+    };
+
+    if (btnAddWater) btnAddWater.addEventListener('click', () => {
+        if (waterCount < waterTarget) setWaterCount(waterCount + 1, true);
+        else addTerminalLine('system', `✅ ¡Ya alcanzaste tu meta de ${waterTarget} vasos!`);
+    });
+    if (btnRemoveWater) btnRemoveWater.addEventListener('click', () => setWaterCount(waterCount - 1, true));
+    if (waterGoalSelect) {
+        waterGoalSelect.value = String(waterTarget);
+        waterGoalSelect.addEventListener('change', () => {
+            waterTarget = parseInt(waterGoalSelect.value, 10);
+            if (waterCount > waterTarget) waterCount = waterTarget;
+            saveState('studyflow-water-target', waterTarget);
+            saveState('studyflow-water-count', waterCount);
+            syncWater();
+            renderWaterCups();
+            addTerminalLine('system', `🎯 Meta de agua: ${waterTarget} vasos por día`);
+        });
+    }
+    renderWaterCups();
+
     if (firestoreAvailable) {
         db.collection('estudioflow').doc('water').onSnapshot((doc) => {
             if (doc.exists && !isSyncing && doc.data().waterCount !== undefined) {
@@ -177,256 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const renderWaterCups = () => {
-        if (!waterCupsContainer) return;
-        waterCupsContainer.innerHTML = '';
-        for (let i = 0; i < waterTarget; i++) {
-            const cup = document.createElement('button');
-            cup.className = `water-cup ${i < waterCount ? 'filled' : ''}`;
-            cup.innerHTML = `<i class="fa-solid fa-droplet cup-icon"></i>`;
-            cup.addEventListener('click', () => setWaterCount(i + 1));
-            waterCupsContainer.appendChild(cup);
-        }
-        if (waterCountDisplay) waterCountDisplay.textContent = waterCount;
-        if (waterGoalDisplay) waterGoalDisplay.textContent = waterTarget;
-        if (waterTargetBadge) waterTargetBadge.textContent = `Meta: ${waterTarget} vasos`;
-        if (btnRemoveWater) btnRemoveWater.disabled = waterCount === 0;
-    };
-
-    const setWaterCount = (newCount) => {
-        waterCount = Math.max(0, Math.min(newCount, waterTarget));
-        saveState('studyflow-water-count', waterCount);
-        syncWater();
-        renderWaterCups();
-        if (waterCount === waterTarget && waterCount > 0 && waterWidget) {
-            waterWidget.classList.add('goal-reached');
-            setTimeout(() => waterWidget.classList.remove('goal-reached'), 4500);
-            addTerminalLine('system', `💧 ¡Meta de ${waterTarget} vasos alcanzada!`);
-        }
-    };
-
-    if (btnAddWater) btnAddWater.addEventListener('click', () => {
-        if (waterCount < waterTarget) setWaterCount(waterCount + 1);
-        else addTerminalLine('system', `✅ ¡Ya alcanzaste tu meta de ${waterTarget} vasos!`);
-    });
-    if (btnRemoveWater) btnRemoveWater.addEventListener('click', () => setWaterCount(waterCount - 1));
-    if (waterGoalSelect) {
-        waterGoalSelect.value = String(waterTarget);
-        waterGoalSelect.addEventListener('change', () => {
-            waterTarget = parseInt(waterGoalSelect.value, 10);
-            if (waterCount > waterTarget) waterCount = waterTarget;
-            saveState('studyflow-water-target', waterTarget);
-            saveState('studyflow-water-count', waterCount);
-            syncWater();
-            renderWaterCups();
-            addTerminalLine('system', `Meta de agua actualizada a ${waterTarget} vasos. 💧`);
-        });
-    }
-    renderWaterCups();
-
     // -------------------------------------------------------------
-    // SISTEMA DE NOTAS CON SINCRONIZACIÓN
-    // -------------------------------------------------------------
-    let notebooks = [];
-    let activeNotebookId = null;
-
-    const notebooksListEl = document.getElementById('notebooks-list');
-    const btnCreateNotebook = document.getElementById('btn-add-notebook');
-    const activeTitleInput = document.getElementById('active-notebook-title');
-    const noteArea = document.getElementById('quick-note');
-    const btnSaveNote = document.getElementById('btn-save-note');
-    const btnClearNote = document.getElementById('btn-clear-note');
-    const autosaveStatus = document.getElementById('autosave-status');
-    const syncStatusSpan = document.getElementById('sync-status');
-
-    const updateSyncStatus = (status) => {
-        if (!syncStatusSpan) return;
-        if (status === 'synced') {
-            syncStatusSpan.innerHTML = '<i class="fa-solid fa-cloud"></i> Sincronizado';
-            syncStatusSpan.style.color = '#34d399';
-        } else if (status === 'syncing') {
-            syncStatusSpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...';
-            syncStatusSpan.style.color = '#fbbf24';
-        } else if (status === 'offline') {
-            syncStatusSpan.innerHTML = '<i class="fa-solid fa-cloud-slash"></i> Offline';
-            syncStatusSpan.style.color = '#f87171';
-        }
-    };
-
-    const saveNotebooksToFirebase = async () => {
-        if (!firestoreAvailable || isSyncing) return;
-        updateSyncStatus('syncing');
-        try {
-            await db.collection('estudioflow').doc('notebooks').set({
-                notebooks: notebooks,
-                activeNotebookId: activeNotebookId,
-                lastUpdated: new Date().toISOString()
-            }, { merge: true });
-            updateSyncStatus('synced');
-        } catch (error) {
-            console.error('Error saving notebooks:', error);
-            updateSyncStatus('offline');
-        }
-    };
-
-    const loadNotebooksFromLocal = () => {
-        const localNotebooks = loadState('studyflow-notebooks-list', null);
-        const defaultNotebooks = [
-            { id: "nb-prog", title: "💻 Programación", content: "" },
-            { id: "nb-db", title: "🗄️ Bases de Datos", content: "" },
-            { id: "nb-sys", title: "🌐 Redes y Sistemas", content: "" }
-        ];
-        if (localNotebooks && localNotebooks.length > 0) {
-            notebooks = localNotebooks;
-            activeNotebookId = localStorage.getItem('studyflow-active-notebook-id') || notebooks[0]?.id;
-        } else {
-            notebooks = defaultNotebooks;
-            activeNotebookId = 'nb-prog';
-            saveState('studyflow-notebooks-list', notebooks);
-            localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
-        }
-    };
-
-    const saveCurrentNotebookContent = async () => {
-        const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-        if (activeNb && noteArea && activeNb.content !== noteArea.value) {
-            activeNb.content = noteArea.value;
-            saveState('studyflow-notebooks-list', notebooks);
-            if (firestoreAvailable) await saveNotebooksToFirebase();
-            return true;
-        }
-        return false;
-    };
-
-    const loadActiveNotebook = () => {
-        const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-        if (activeNb && noteArea) noteArea.value = activeNb.content || '';
-        if (activeTitleInput && activeNb) activeTitleInput.value = activeNb.title;
-    };
-
-    let autosaveTimeout = null;
-    const triggerAutosave = () => {
-        if (autosaveStatus) autosaveStatus.textContent = "Guardando...";
-        clearTimeout(autosaveTimeout);
-        autosaveTimeout = setTimeout(async () => {
-            await saveCurrentNotebookContent();
-            if (autosaveStatus) autosaveStatus.textContent = "✓ Guardado";
-            setTimeout(() => { if (autosaveStatus) autosaveStatus.textContent = "Listo"; }, 1000);
-        }, 800);
-    };
-
-    const renderNotebooksSidebar = () => {
-        if (!notebooksListEl) return;
-        notebooksListEl.innerHTML = '';
-        notebooks.forEach(nb => {
-            const li = document.createElement('li');
-            li.className = `notebook-item ${nb.id === activeNotebookId ? 'active' : ''}`;
-            li.dataset.id = nb.id;
-            li.innerHTML = `<span class="notebook-item-title">${escapeHTML(nb.title)}</span>`;
-            const isDefault = ['nb-prog', 'nb-db', 'nb-sys'].includes(nb.id);
-            if (!isDefault) {
-                const btnDelete = document.createElement('button');
-                btnDelete.className = 'btn-delete-notebook';
-                btnDelete.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-                btnDelete.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    if (confirm(`¿Borrar "${nb.title}"?`)) {
-                        notebooks = notebooks.filter(item => item.id !== nb.id);
-                        if (activeNotebookId === nb.id) activeNotebookId = notebooks[0]?.id || 'nb-prog';
-                        saveState('studyflow-notebooks-list', notebooks);
-                        localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
-                        if (firestoreAvailable) await saveNotebooksToFirebase();
-                        renderNotebooksSidebar();
-                        loadActiveNotebook();
-                        addTerminalLine('system', `📓 Cuaderno eliminado: "${nb.title}"`);
-                    }
-                });
-                li.appendChild(btnDelete);
-            }
-            li.addEventListener('click', async () => {
-                if (activeNotebookId === nb.id) return;
-                await saveCurrentNotebookContent();
-                activeNotebookId = nb.id;
-                localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
-                if (firestoreAvailable) await saveNotebooksToFirebase();
-                renderNotebooksSidebar();
-                loadActiveNotebook();
-            });
-            notebooksListEl.appendChild(li);
-        });
-    };
-
-    if (noteArea) noteArea.addEventListener('input', triggerAutosave);
-    if (activeTitleInput) {
-        activeTitleInput.addEventListener('input', async () => {
-            const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-            if (activeNb && activeNb.title !== activeTitleInput.value) {
-                activeNb.title = activeTitleInput.value;
-                saveState('studyflow-notebooks-list', notebooks);
-                if (firestoreAvailable) await saveNotebooksToFirebase();
-                renderNotebooksSidebar();
-            }
-        });
-    }
-    if (btnSaveNote) {
-        btnSaveNote.addEventListener('click', async () => {
-            await saveCurrentNotebookContent();
-            btnSaveNote.innerHTML = '<i class="fa-solid fa-check"></i> Guardado!';
-            setTimeout(() => btnSaveNote.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar', 1500);
-            addTerminalLine('system', '📝 Notas guardadas y sincronizadas');
-        });
-    }
-    if (btnClearNote && noteArea) {
-        btnClearNote.addEventListener('click', async () => {
-            const activeNb = notebooks.find(nb => nb.id === activeNotebookId);
-            if (confirm(`¿Borrar apuntes de "${activeNb?.title}"?`)) {
-                noteArea.value = '';
-                await saveCurrentNotebookContent();
-                addTerminalLine('system', `📓 Apuntes borrados de "${activeNb?.title}"`);
-            }
-        });
-    }
-    if (btnCreateNotebook) {
-        btnCreateNotebook.addEventListener('click', async () => {
-            const name = prompt('Nombre del nuevo cuaderno:', 'Nuevo Cuaderno');
-            if (!name) return;
-            const newId = 'nb-' + Date.now();
-            notebooks.push({ id: newId, title: name.trim(), content: '' });
-            activeNotebookId = newId;
-            saveState('studyflow-notebooks-list', notebooks);
-            localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
-            if (firestoreAvailable) await saveNotebooksToFirebase();
-            renderNotebooksSidebar();
-            loadActiveNotebook();
-            addTerminalLine('system', `📓 Nuevo cuaderno creado: "${name}"`);
-        });
-    }
-
-    loadNotebooksFromLocal();
-    renderNotebooksSidebar();
-    loadActiveNotebook();
-
-    if (firestoreAvailable) {
-        db.collection('estudioflow').doc('notebooks').onSnapshot((doc) => {
-            if (doc.exists && !isSyncing && doc.data().notebooks) {
-                const data = doc.data();
-                if (JSON.stringify(notebooks) !== JSON.stringify(data.notebooks)) {
-                    isSyncing = true;
-                    notebooks = data.notebooks;
-                    activeNotebookId = data.activeNotebookId;
-                    saveState('studyflow-notebooks-list', notebooks);
-                    localStorage.setItem('studyflow-active-notebook-id', activeNotebookId);
-                    renderNotebooksSidebar();
-                    loadActiveNotebook();
-                    addTerminalLine('system', '☁️ Notas sincronizadas');
-                    isSyncing = false;
-                }
-            }
-        });
-    }
-
-    // -------------------------------------------------------------
-    // POMODORO TIMER
+    // POMODORO TIMER (simplificado)
     // -------------------------------------------------------------
     let timerInterval = null;
     let totalSeconds = 1500;
@@ -435,7 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let completedPomodoros = loadState('completed-pomodoros', 0);
 
     const timeLeftEl = document.getElementById('time-left');
-    const timerProgressEl = document.getElementById('timer-progress');
     const timerStatusEl = document.getElementById('timer-status');
     const btnTimerStart = document.getElementById('btn-timer-start');
     const btnTimerPause = document.getElementById('btn-timer-pause');
@@ -468,9 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     completedPomodoros++;
                     if (statPomodorosEl) statPomodorosEl.textContent = completedPomodoros;
                     saveState('completed-pomodoros', completedPomodoros);
-                    addTerminalLine('system', '✅ Pomodoro completado!');
+                    addTerminalLine('system', '✅ Pomodoro completado! Tómate un recreo.');
                 }
                 resetTimer();
+                const alarmModal = document.getElementById('alarm-modal');
+                if (alarmModal) alarmModal.classList.remove('hidden');
             }
         }, 1000);
     };
@@ -510,25 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const customMinutesInput = document.getElementById('custom-minutes');
-    const btnSetCustom = document.getElementById('btn-set-custom');
-    if (btnSetCustom && customMinutesInput) {
-        btnSetCustom.addEventListener('click', () => {
-            const mins = parseInt(customMinutesInput.value, 10);
-            if (isNaN(mins) || mins < 1 || mins > 180) {
-                alert('Minutos válidos: 1-180');
-                return;
-            }
-            presetBtns.forEach(b => b.classList.remove('active'));
-            totalSeconds = mins * 60;
-            secondsLeft = totalSeconds;
-            if (timerStatusEl) timerStatusEl.textContent = `${mins}m`;
-            resetTimer();
-        });
-    }
-
-    resetTimer();
-
     const btnCloseModal = document.getElementById('btn-close-modal');
     const alarmModal = document.getElementById('alarm-modal');
     if (btnCloseModal && alarmModal) {
@@ -537,6 +471,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bellSound) bellSound.pause();
         });
     }
+
+    resetTimer();
 
     // -------------------------------------------------------------
     // TABS NAVIGATION
@@ -594,15 +530,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cmd = terminalInput.value.trim().toLowerCase();
                 if (cmd) {
                     addTerminalLine('input', cmd);
-                    if (cmd === 'help') addTerminalLine('output', 'Comandos: help, clear, date, todo');
-                    else if (cmd === 'clear') { const out = document.getElementById('terminal-output'); if (out) out.innerHTML = ''; }
-                    else if (cmd === 'date') addTerminalLine('output', new Date().toString());
-                    else if (cmd === 'todo') {
+                    if (cmd === 'help') {
+                        addTerminalLine('output', 'Comandos: help, clear, date, todo, rutina');
+                    } else if (cmd === 'clear') {
+                        const out = document.getElementById('terminal-output');
+                        if (out) out.innerHTML = '';
+                    } else if (cmd === 'date') {
+                        addTerminalLine('output', new Date().toString());
+                    } else if (cmd === 'todo') {
                         const pending = tasks.filter(t => !t.completed);
-                        if (pending.length === 0) addTerminalLine('output', 'No hay tareas pendientes');
-                        else pending.forEach(t => addTerminalLine('output', `- ${t.title}`));
+                        if (pending.length === 0) addTerminalLine('output', '✅ No hay tareas pendientes');
+                        else pending.forEach(t => addTerminalLine('output', `📌 ${t.title} (${t.priority})`));
+                    } else if (cmd === 'rutina') {
+                        const total = morningRoutines.length + afternoonRoutines.length + eveningRoutines.length;
+                        const completed = morningRoutines.filter(r => r.completed).length + afternoonRoutines.filter(r => r.completed).length + eveningRoutines.filter(r => r.completed).length;
+                        addTerminalLine('output', `📊 Progreso de rutinas: ${completed}/${total} completadas (${Math.round(completed/total*100)}%)`);
+                    } else {
+                        addTerminalLine('output', `❌ Comando no reconocido: "${cmd}". Escribe "help"`);
                     }
-                    else addTerminalLine('output', `Comando no reconocido: ${cmd}`);
                     terminalInput.value = '';
                 }
             }
@@ -629,6 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isLofiPlaying = true;
                 btnLofiPlay.innerHTML = '<i class="fa-solid fa-pause"></i>';
                 if (lofiStatus) lofiStatus.textContent = 'Online';
+                addTerminalLine('system', '🎵 Lofi music activada');
             }).catch(() => {});
         };
         const stopLofi = () => {
@@ -636,13 +582,15 @@ document.addEventListener('DOMContentLoaded', () => {
             isLofiPlaying = false;
             btnLofiPlay.innerHTML = '<i class="fa-solid fa-play"></i>';
             if (lofiStatus) lofiStatus.textContent = 'Offline';
+            addTerminalLine('system', '🎵 Lofi music detenida');
         };
         btnLofiPlay.addEventListener('click', () => isLofiPlaying ? stopLofi() : playLofi());
         if (lofiVolume) lofiVolume.addEventListener('input', (e) => lofiAudio.volume = e.target.value);
     }
 
+    // Mensaje de bienvenida
     setTimeout(() => {
-        if (firestoreAvailable) addTerminalLine('system', '🎉 Sincronización en tiempo real activa');
-        else addTerminalLine('system', '📁 Modo local');
+        if (firestoreAvailable) addTerminalLine('system', '🎉 Sincronización en tiempo real activa!');
+        else addTerminalLine('system', '📁 Modo local - Firebase no conectado');
     }, 500);
 });
